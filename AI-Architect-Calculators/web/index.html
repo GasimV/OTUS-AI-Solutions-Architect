@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Architect Calculators</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AI Architect Calculators</h1>
+            <p class="subtitle">Professional tools for AI solution architects</p>
+        </header>
+
+        <main>
+            <!-- GenAI ValueScore Calculator -->
+            <section class="calculator-card">
+                <h2>GenAI ValueScore</h2>
+                <p class="formula">ValueScore = (Scale × Frequency) / ManualComplexity</p>
+
+                <div class="form-group">
+                    <label for="vs-scale">Scale (1-10):</label>
+                    <input type="number" id="vs-scale" min="1" max="10" step="0.1" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="vs-frequency">Frequency (1-10):</label>
+                    <input type="number" id="vs-frequency" min="1" max="10" step="0.1" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="vs-complexity">ManualComplexity (1-10):</label>
+                    <input type="number" id="vs-complexity" min="1" max="10" step="0.1" required>
+                </div>
+
+                <button onclick="calculateValueScore()">Calculate</button>
+
+                <div class="result" id="vs-result"></div>
+            </section>
+
+            <!-- PERT Calculator -->
+            <section class="calculator-card">
+                <h2>PERT Estimation</h2>
+                <p class="formula">E = (O + 4M + P) / 6, σ = (P - O) / 6, Upper95% = E + 2σ</p>
+
+                <div class="form-group">
+                    <label for="pert-optimistic">Optimistic (O):</label>
+                    <input type="number" id="pert-optimistic" min="0" step="0.1" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="pert-mostlikely">Most Likely (M):</label>
+                    <input type="number" id="pert-mostlikely" min="0" step="0.1" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="pert-pessimistic">Pessimistic (P):</label>
+                    <input type="number" id="pert-pessimistic" min="0" step="0.1" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="pert-unit">Unit:</label>
+                    <select id="pert-unit">
+                        <option value="days">Days</option>
+                        <option value="weeks">Weeks</option>
+                    </select>
+                </div>
+
+                <button onclick="calculatePERT()">Calculate</button>
+
+                <div class="result" id="pert-result"></div>
+            </section>
+
+            <!-- Risk Exposure Calculator -->
+            <section class="calculator-card">
+                <h2>Risk Exposure</h2>
+                <p class="formula">Exposure = (Probability% / 100) × Impact</p>
+
+                <div class="form-group">
+                    <label for="risk-probability">Probability (0-100%):</label>
+                    <input type="number" id="risk-probability" min="0" max="100" step="0.1" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="risk-impact">Impact ($):</label>
+                    <input type="number" id="risk-impact" min="0" step="0.01" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="risk-period">Period:</label>
+                    <input type="text" id="risk-period" value="/month" placeholder="e.g., /month, /year">
+                </div>
+
+                <button onclick="calculateRisk()">Calculate</button>
+
+                <div class="result" id="risk-result"></div>
+            </section>
+
+            <!-- TCO Calculator -->
+            <section class="calculator-card">
+                <h2>Total Cost of Ownership (TCO)</h2>
+                <p class="formula">TCO = CapEx + (OpExMonthly × Months)</p>
+
+                <div class="form-group">
+                    <label for="tco-capex">CapEx ($):</label>
+                    <input type="number" id="tco-capex" min="0" step="0.01" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="tco-opex">OpExMonthly ($):</label>
+                    <input type="number" id="tco-opex" min="0" step="0.01" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="tco-months">Months:</label>
+                    <input type="number" id="tco-months" min="1" value="36" required>
+                </div>
+
+                <button onclick="calculateTCO()">Calculate</button>
+
+                <div class="result" id="tco-result"></div>
+            </section>
+
+            <!-- Budget with Reserves Calculator -->
+            <section class="calculator-card">
+                <h2>Budget with Reserves</h2>
+                <p class="formula">UnknownReserve = BaseBudget × (Unknown% / 100)<br>
+                   TotalBudget = BaseBudget + KnownReserve + UnknownReserve</p>
+
+                <div class="form-group">
+                    <label for="budget-base">Base Budget ($):</label>
+                    <input type="number" id="budget-base" min="0" step="0.01" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="budget-known">Known Reserve ($):</label>
+                    <input type="number" id="budget-known" min="0" step="0.01" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="budget-unknown">Unknown Reserve (%):</label>
+                    <input type="number" id="budget-unknown" min="0" max="100" value="20" step="0.1" required>
+                </div>
+
+                <button onclick="calculateBudget()">Calculate</button>
+
+                <div class="result" id="budget-result"></div>
+            </section>
+        </main>
+
+        <footer>
+            <p>&copy; 2026 AI Architect Calculators</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
