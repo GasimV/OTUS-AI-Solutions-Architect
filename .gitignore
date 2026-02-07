@@ -3,3 +3,8 @@ Homework-Tasks/
 .vscode/
 nul
 build
+!AI-Architect-Calculators/build/
+AI-Architect-Calculators/build/*
+!AI-Architect-Calculators/build/Release/
+AI-Architect-Calculators/build/Release/*
+!AI-Architect-Calculators/build/Release/calculator_server.exe

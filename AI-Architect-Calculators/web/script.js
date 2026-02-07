@@ -196,6 +196,175 @@ async function calculateBudget() {
     }
 }
 
+// Little's Law (Concurrency) Calculator
+async function calculateLittlesLaw() {
+    const rps = parseFloat(document.getElementById('ll-rps').value);
+    const latency = parseFloat(document.getElementById('ll-latency').value);
+
+    if (isNaN(rps) || isNaN(latency)) {
+        showResult('ll-result', 'Please fill in all fields.', true);
+        return;
+    }
+
+    const result = await apiCall('littlesLaw', { rps, latency });
+
+    if (result.error) {
+        showResult('ll-result', `Error: ${result.error}`, true);
+    } else {
+        const html = `
+            <div class="result-line">
+                <strong>Concurrency (L):</strong>
+                <span class="result-value">${formatNumber(result.concurrency)} concurrent requests</span>
+            </div>
+        `;
+        showResult('ll-result', html);
+    }
+}
+
+// LLM Latency Calculator
+async function calculateLLMLatency() {
+    const timePerToken = parseFloat(document.getElementById('llm-tpt').value);
+    const tokensCount = parseInt(document.getElementById('llm-tokens').value);
+    const prefillTime = parseFloat(document.getElementById('llm-prefill').value) || 0;
+
+    if (isNaN(timePerToken) || isNaN(tokensCount)) {
+        showResult('llm-result', 'Please fill in all required fields.', true);
+        return;
+    }
+
+    const result = await apiCall('llmLatency', { tokensCount, timePerToken, prefillTime });
+
+    if (result.error) {
+        showResult('llm-result', `Error: ${result.error}`, true);
+    } else {
+        let html = `
+            <div class="result-line">
+                <strong>Generation Time:</strong>
+                <span class="result-value">${result.generationTimeSec} sec</span>
+            </div>
+        `;
+        if (prefillTime > 0) {
+            html += `
+                <div class="result-line">
+                    <strong>Total Time (with prefill):</strong>
+                    <span class="result-value">${result.totalTimeSec} sec</span>
+                </div>
+            `;
+        }
+        showResult('llm-result', html);
+    }
+}
+
+// Vector DB Storage Sizing Calculator
+async function calculateVectorStorage() {
+    const pages = parseInt(document.getElementById('vec-pages').value);
+    const chunksPerPage = parseInt(document.getElementById('vec-chunks').value);
+    const vectorDim = parseInt(document.getElementById('vec-dim').value);
+    const bytesPerFloat = parseInt(document.getElementById('vec-bytes').value);
+
+    if (isNaN(pages) || isNaN(chunksPerPage) || isNaN(vectorDim)) {
+        showResult('vec-result', 'Please fill in all fields.', true);
+        return;
+    }
+
+    const result = await apiCall('vectorStorage', { pages, chunksPerPage, vectorDim, bytesPerFloat });
+
+    if (result.error) {
+        showResult('vec-result', `Error: ${result.error}`, true);
+    } else {
+        const html = `
+            <div class="result-line">
+                <strong>Total Vectors:</strong>
+                <span class="result-value">${result.totalVectors.toLocaleString()}</span>
+            </div>
+            <div class="result-line">
+                <strong>Vector Size:</strong>
+                <span class="result-value">${formatNumber(result.vectorSizeKB)} KB</span>
+            </div>
+            <div class="result-line">
+                <strong>Total Storage:</strong>
+                <span class="result-value">~${formatNumber(result.totalSizeMB)} MB</span>
+            </div>
+        `;
+        showResult('vec-result', html);
+    }
+}
+
+// Log Storage (Observability) Calculator
+async function calculateLogStorage() {
+    const rps = parseFloat(document.getElementById('log-rps').value);
+    const logSizeKB = parseFloat(document.getElementById('log-size').value);
+    const retentionDays = parseInt(document.getElementById('log-days').value);
+
+    if (isNaN(rps) || isNaN(logSizeKB)) {
+        showResult('log-result', 'Please fill in all fields.', true);
+        return;
+    }
+
+    const result = await apiCall('logStorage', { rps, logSizeKB, retentionDays });
+
+    if (result.error) {
+        showResult('log-result', `Error: ${result.error}`, true);
+    } else {
+        const html = `
+            <div class="result-line">
+                <strong>Events per Day:</strong>
+                <span class="result-value">~${Number(result.eventsPerDay).toLocaleString()}</span>
+            </div>
+            <div class="result-line">
+                <strong>Daily Volume:</strong>
+                <span class="result-value">~${formatNumber(result.dailySizeGB)} GB</span>
+            </div>
+            <div class="result-line">
+                <strong>Total (${retentionDays} days):</strong>
+                <span class="result-value">~${formatNumber(result.totalSizeGB)} GB</span>
+            </div>
+        `;
+        showResult('log-result', html);
+    }
+}
+
+// Scalability Check (RAM) Calculator
+async function calculateScalability() {
+    const rps = parseFloat(document.getElementById('sc-rps').value);
+    const latency = parseFloat(document.getElementById('sc-latency').value);
+    const ramPerWorkerMB = parseFloat(document.getElementById('sc-ram-worker').value);
+    const availableRAM_GB = parseFloat(document.getElementById('sc-ram-available').value);
+
+    if (isNaN(rps) || isNaN(latency) || isNaN(ramPerWorkerMB) || isNaN(availableRAM_GB)) {
+        showResult('sc-result', 'Please fill in all fields.', true);
+        return;
+    }
+
+    const result = await apiCall('scalability', { rps, latency, ramPerWorkerMB, availableRAM_GB });
+
+    if (result.error) {
+        showResult('sc-result', `Error: ${result.error}`, true);
+    } else {
+        const verdict = result.willCrash
+            ? '<span style="color: #dc3545; font-weight: bold;">CRASH! Not enough RAM</span>'
+            : '<span style="color: #28a745; font-weight: bold;">OK - fits in available RAM</span>';
+        const html = `
+            <div class="result-line">
+                <strong>Concurrency (L):</strong>
+                <span class="result-value">${formatNumber(result.concurrency)} workers</span>
+            </div>
+            <div class="result-line">
+                <strong>Required RAM:</strong>
+                <span class="result-value">${formatNumber(result.requiredRAM_GB)} GB</span>
+            </div>
+            <div class="result-line">
+                <strong>Available RAM:</strong>
+                <span class="result-value">${result.availableRAM_GB} GB</span>
+            </div>
+            <div class="result-line">
+                <strong>Verdict:</strong> ${verdict}
+            </div>
+        `;
+        showResult('sc-result', html);
+    }
+}
+
 // Add Enter key support for all calculators
 document.addEventListener('DOMContentLoaded', function() {
     // ValueScore
@@ -230,6 +399,41 @@ document.addEventListener('DOMContentLoaded', function() {
     ['budget-base', 'budget-known', 'budget-unknown'].forEach(id => {
         document.getElementById(id).addEventListener('keypress', function(e) {
             if (e.key === 'Enter') calculateBudget();
+        });
+    });
+
+    // Little's Law
+    ['ll-rps', 'll-latency'].forEach(id => {
+        document.getElementById(id).addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') calculateLittlesLaw();
+        });
+    });
+
+    // LLM Latency
+    ['llm-tpt', 'llm-tokens', 'llm-prefill'].forEach(id => {
+        document.getElementById(id).addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') calculateLLMLatency();
+        });
+    });
+
+    // Vector Storage
+    ['vec-pages', 'vec-chunks', 'vec-dim'].forEach(id => {
+        document.getElementById(id).addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') calculateVectorStorage();
+        });
+    });
+
+    // Log Storage
+    ['log-rps', 'log-size', 'log-days'].forEach(id => {
+        document.getElementById(id).addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') calculateLogStorage();
+        });
+    });
+
+    // Scalability Check
+    ['sc-rps', 'sc-latency', 'sc-ram-worker', 'sc-ram-available'].forEach(id => {
+        document.getElementById(id).addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') calculateScalability();
         });
     });
 });

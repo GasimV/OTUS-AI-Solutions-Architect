@@ -147,6 +147,141 @@
 
                 <div class="result" id="budget-result"></div>
             </section>
+            <!-- Little's Law (Concurrency) Calculator -->
+            <section class="calculator-card">
+                <h2>Little's Law (Concurrency)</h2>
+                <p class="formula">L = &lambda; &times; W<br>
+                   L = concurrency, &lambda; = RPS, W = latency (sec)</p>
+
+                <div class="form-group">
+                    <label for="ll-rps">&lambda; &mdash; Request Rate (req/sec):</label>
+                    <input type="number" id="ll-rps" min="0.1" step="0.1" placeholder="e.g. 100" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="ll-latency">W &mdash; Latency (sec):</label>
+                    <input type="number" id="ll-latency" min="0.001" step="0.001" placeholder="e.g. 5" required>
+                </div>
+
+                <button onclick="calculateLittlesLaw()">Calculate</button>
+
+                <div class="result" id="ll-result"></div>
+            </section>
+
+            <!-- LLM Latency Calculator -->
+            <section class="calculator-card">
+                <h2>LLM Latency</h2>
+                <p class="formula">T<sub>total</sub> = T<sub>prefill</sub> + (N<sub>tokens</sub> &times; T<sub>per_token</sub>)</p>
+
+                <div class="form-group">
+                    <label for="llm-tpt">T<sub>per_token</sub> (ms):</label>
+                    <input type="number" id="llm-tpt" min="0.1" step="0.1" placeholder="e.g. 25" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="llm-tokens">N<sub>tokens</sub> (output tokens):</label>
+                    <input type="number" id="llm-tokens" min="1" step="1" placeholder="e.g. 200" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="llm-prefill">T<sub>prefill</sub> (ms, optional):</label>
+                    <input type="number" id="llm-prefill" min="0" step="0.1" value="0">
+                </div>
+
+                <button onclick="calculateLLMLatency()">Calculate</button>
+
+                <div class="result" id="llm-result"></div>
+            </section>
+
+            <!-- Vector DB Storage Sizing Calculator -->
+            <section class="calculator-card">
+                <h2>Vector DB Storage Sizing</h2>
+                <p class="formula">Size = Pages &times; Chunks/Page &times; VectorDim &times; BytesPerFloat</p>
+
+                <div class="form-group">
+                    <label for="vec-pages">Number of Pages:</label>
+                    <input type="number" id="vec-pages" min="1" step="1" placeholder="e.g. 1000" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="vec-chunks">Chunks per Page:</label>
+                    <input type="number" id="vec-chunks" min="1" step="1" value="10" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="vec-dim">Vector Dimension:</label>
+                    <input type="number" id="vec-dim" min="1" step="1" placeholder="e.g. 1536" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="vec-bytes">Float Type:</label>
+                    <select id="vec-bytes">
+                        <option value="4" selected>float32 (4 bytes)</option>
+                        <option value="2">float16 (2 bytes)</option>
+                        <option value="8">float64 (8 bytes)</option>
+                    </select>
+                </div>
+
+                <button onclick="calculateVectorStorage()">Calculate</button>
+
+                <div class="result" id="vec-result"></div>
+            </section>
+
+            <!-- Log Storage (Observability) Calculator -->
+            <section class="calculator-card">
+                <h2>Log Storage (Observability)</h2>
+                <p class="formula">Volume = RPS &times; 86400 &times; LogSize &times; RetentionDays</p>
+
+                <div class="form-group">
+                    <label for="log-rps">Average RPS (req/sec):</label>
+                    <input type="number" id="log-rps" min="0.1" step="0.1" placeholder="e.g. 20" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="log-size">Log Record Size (KB):</label>
+                    <input type="number" id="log-size" min="0.01" step="0.01" placeholder="e.g. 2" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="log-days">Retention Period (days):</label>
+                    <input type="number" id="log-days" min="1" step="1" value="30" required>
+                </div>
+
+                <button onclick="calculateLogStorage()">Calculate</button>
+
+                <div class="result" id="log-result"></div>
+            </section>
+
+            <!-- Scalability Check (RAM) Calculator -->
+            <section class="calculator-card">
+                <h2>Scalability Check (RAM)</h2>
+                <p class="formula">RequiredRAM = (RPS &times; Latency) &times; RAMperWorker<br>
+                   Verdict: RequiredRAM vs AvailableRAM</p>
+
+                <div class="form-group">
+                    <label for="sc-rps">&lambda; &mdash; Peak RPS (req/sec):</label>
+                    <input type="number" id="sc-rps" min="0.1" step="0.1" placeholder="e.g. 100" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="sc-latency">W &mdash; Latency (sec):</label>
+                    <input type="number" id="sc-latency" min="0.001" step="0.001" placeholder="e.g. 5" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="sc-ram-worker">RAM per Worker (MB):</label>
+                    <input type="number" id="sc-ram-worker" min="1" step="1" placeholder="e.g. 50" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="sc-ram-available">Available Server RAM (GB):</label>
+                    <input type="number" id="sc-ram-available" min="0.1" step="0.1" placeholder="e.g. 16" required>
+                </div>
+
+                <button onclick="calculateScalability()">Calculate</button>
+
+                <div class="result" id="sc-result"></div>
+            </section>
         </main>
 
         <footer>

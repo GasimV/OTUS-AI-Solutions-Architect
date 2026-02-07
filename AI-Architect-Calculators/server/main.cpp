@@ -207,6 +207,221 @@ json calculateBudget(const json& input) {
     return response;
 }
 
+// Little's Law (Concurrency) Calculator
+json calculateLittlesLaw(const json& input) {
+    json response;
+
+    try {
+        if (!input.contains("rps") || !input.contains("latency")) {
+            response["error"] = "Missing required fields: rps, latency";
+            return response;
+        }
+
+        double rps = input["rps"];
+        double latency = input["latency"];
+
+        if (!isPositive(rps)) {
+            response["error"] = "RPS must be positive";
+            return response;
+        }
+        if (!isPositive(latency)) {
+            response["error"] = "Latency must be positive";
+            return response;
+        }
+
+        double concurrency = rps * latency;
+
+        response["success"] = true;
+        response["concurrency"] = std::round(concurrency * 100.0) / 100.0;
+
+    } catch (const std::exception& e) {
+        response["error"] = std::string("Calculation error: ") + e.what();
+    }
+
+    return response;
+}
+
+// LLM Latency Calculator
+json calculateLLMLatency(const json& input) {
+    json response;
+
+    try {
+        if (!input.contains("tokensCount") || !input.contains("timePerToken")) {
+            response["error"] = "Missing required fields: tokensCount, timePerToken";
+            return response;
+        }
+
+        int tokensCount = input["tokensCount"];
+        double timePerToken = input["timePerToken"];
+        double prefillTime = input.value("prefillTime", 0.0);
+
+        if (tokensCount <= 0) {
+            response["error"] = "Tokens count must be positive";
+            return response;
+        }
+        if (timePerToken <= 0) {
+            response["error"] = "Time per token must be positive";
+            return response;
+        }
+        if (prefillTime < 0) {
+            response["error"] = "Prefill time must be non-negative";
+            return response;
+        }
+
+        double generationTimeSec = (tokensCount * timePerToken) / 1000.0;
+        double totalTimeSec = (prefillTime / 1000.0) + generationTimeSec;
+
+        response["success"] = true;
+        response["generationTimeSec"] = std::round(generationTimeSec * 1000.0) / 1000.0;
+        response["totalTimeSec"] = std::round(totalTimeSec * 1000.0) / 1000.0;
+
+    } catch (const std::exception& e) {
+        response["error"] = std::string("Calculation error: ") + e.what();
+    }
+
+    return response;
+}
+
+// Vector DB Storage Sizing Calculator
+json calculateVectorStorage(const json& input) {
+    json response;
+
+    try {
+        if (!input.contains("pages") || !input.contains("chunksPerPage") || !input.contains("vectorDim")) {
+            response["error"] = "Missing required fields: pages, chunksPerPage, vectorDim";
+            return response;
+        }
+
+        int pages = input["pages"];
+        int chunksPerPage = input["chunksPerPage"];
+        int vectorDim = input["vectorDim"];
+        int bytesPerFloat = input.value("bytesPerFloat", 4);
+
+        if (pages <= 0) {
+            response["error"] = "Pages must be positive";
+            return response;
+        }
+        if (chunksPerPage <= 0) {
+            response["error"] = "Chunks per page must be positive";
+            return response;
+        }
+        if (vectorDim <= 0) {
+            response["error"] = "Vector dimension must be positive";
+            return response;
+        }
+        if (bytesPerFloat != 2 && bytesPerFloat != 4 && bytesPerFloat != 8) {
+            response["error"] = "Bytes per float must be 2 (float16), 4 (float32), or 8 (float64)";
+            return response;
+        }
+
+        long long totalVectors = (long long)pages * chunksPerPage;
+        double vectorSizeKB = (vectorDim * bytesPerFloat) / 1024.0;
+        double totalSizeMB = (totalVectors * vectorSizeKB) / 1024.0;
+
+        response["success"] = true;
+        response["totalVectors"] = totalVectors;
+        response["vectorSizeKB"] = std::round(vectorSizeKB * 100.0) / 100.0;
+        response["totalSizeMB"] = std::round(totalSizeMB * 100.0) / 100.0;
+
+    } catch (const std::exception& e) {
+        response["error"] = std::string("Calculation error: ") + e.what();
+    }
+
+    return response;
+}
+
+// Log Storage (Observability) Calculator
+json calculateLogStorage(const json& input) {
+    json response;
+
+    try {
+        if (!input.contains("rps") || !input.contains("logSizeKB")) {
+            response["error"] = "Missing required fields: rps, logSizeKB";
+            return response;
+        }
+
+        double rps = input["rps"];
+        double logSizeKB = input["logSizeKB"];
+        int retentionDays = input.value("retentionDays", 30);
+
+        if (!isPositive(rps)) {
+            response["error"] = "RPS must be positive";
+            return response;
+        }
+        if (!isPositive(logSizeKB)) {
+            response["error"] = "Log size must be positive";
+            return response;
+        }
+        if (retentionDays <= 0) {
+            response["error"] = "Retention days must be positive";
+            return response;
+        }
+
+        double eventsPerDay = rps * 86400.0;
+        double dailySizeGB = (eventsPerDay * logSizeKB) / (1024.0 * 1024.0);
+        double totalSizeGB = dailySizeGB * retentionDays;
+
+        response["success"] = true;
+        response["eventsPerDay"] = std::round(eventsPerDay);
+        response["dailySizeGB"] = std::round(dailySizeGB * 100.0) / 100.0;
+        response["totalSizeGB"] = std::round(totalSizeGB * 100.0) / 100.0;
+
+    } catch (const std::exception& e) {
+        response["error"] = std::string("Calculation error: ") + e.what();
+    }
+
+    return response;
+}
+
+// Scalability Check (RAM) Calculator
+json calculateScalability(const json& input) {
+    json response;
+
+    try {
+        if (!input.contains("rps") || !input.contains("latency") || !input.contains("ramPerWorkerMB") || !input.contains("availableRAM_GB")) {
+            response["error"] = "Missing required fields: rps, latency, ramPerWorkerMB, availableRAM_GB";
+            return response;
+        }
+
+        double rps = input["rps"];
+        double latency = input["latency"];
+        double ramPerWorkerMB = input["ramPerWorkerMB"];
+        double availableRAM_GB = input["availableRAM_GB"];
+
+        if (!isPositive(rps)) {
+            response["error"] = "RPS must be positive";
+            return response;
+        }
+        if (!isPositive(latency)) {
+            response["error"] = "Latency must be positive";
+            return response;
+        }
+        if (!isPositive(ramPerWorkerMB)) {
+            response["error"] = "RAM per worker must be positive";
+            return response;
+        }
+        if (!isPositive(availableRAM_GB)) {
+            response["error"] = "Available RAM must be positive";
+            return response;
+        }
+
+        double concurrency = rps * latency;
+        double requiredRAM_GB = (concurrency * ramPerWorkerMB) / 1024.0;
+        bool willCrash = requiredRAM_GB > availableRAM_GB;
+
+        response["success"] = true;
+        response["concurrency"] = std::round(concurrency * 100.0) / 100.0;
+        response["requiredRAM_GB"] = std::round(requiredRAM_GB * 100.0) / 100.0;
+        response["availableRAM_GB"] = availableRAM_GB;
+        response["willCrash"] = willCrash;
+
+    } catch (const std::exception& e) {
+        response["error"] = std::string("Calculation error: ") + e.what();
+    }
+
+    return response;
+}
+
 int main() {
     Server svr;
 
@@ -285,6 +500,71 @@ int main() {
         try {
             json input = json::parse(req.body);
             json result = calculateBudget(input);
+            res.set_content(result.dump(), "application/json");
+        } catch (const std::exception& e) {
+            json error;
+            error["error"] = std::string("Invalid JSON: ") + e.what();
+            res.status = 400;
+            res.set_content(error.dump(), "application/json");
+        }
+    });
+
+    svr.Post("/api/littlesLaw", [](const Request& req, Response& res) {
+        try {
+            json input = json::parse(req.body);
+            json result = calculateLittlesLaw(input);
+            res.set_content(result.dump(), "application/json");
+        } catch (const std::exception& e) {
+            json error;
+            error["error"] = std::string("Invalid JSON: ") + e.what();
+            res.status = 400;
+            res.set_content(error.dump(), "application/json");
+        }
+    });
+
+    svr.Post("/api/llmLatency", [](const Request& req, Response& res) {
+        try {
+            json input = json::parse(req.body);
+            json result = calculateLLMLatency(input);
+            res.set_content(result.dump(), "application/json");
+        } catch (const std::exception& e) {
+            json error;
+            error["error"] = std::string("Invalid JSON: ") + e.what();
+            res.status = 400;
+            res.set_content(error.dump(), "application/json");
+        }
+    });
+
+    svr.Post("/api/vectorStorage", [](const Request& req, Response& res) {
+        try {
+            json input = json::parse(req.body);
+            json result = calculateVectorStorage(input);
+            res.set_content(result.dump(), "application/json");
+        } catch (const std::exception& e) {
+            json error;
+            error["error"] = std::string("Invalid JSON: ") + e.what();
+            res.status = 400;
+            res.set_content(error.dump(), "application/json");
+        }
+    });
+
+    svr.Post("/api/logStorage", [](const Request& req, Response& res) {
+        try {
+            json input = json::parse(req.body);
+            json result = calculateLogStorage(input);
+            res.set_content(result.dump(), "application/json");
+        } catch (const std::exception& e) {
+            json error;
+            error["error"] = std::string("Invalid JSON: ") + e.what();
+            res.status = 400;
+            res.set_content(error.dump(), "application/json");
+        }
+    });
+
+    svr.Post("/api/scalability", [](const Request& req, Response& res) {
+        try {
+            json input = json::parse(req.body);
+            json result = calculateScalability(input);
             res.set_content(result.dump(), "application/json");
         } catch (const std::exception& e) {
             json error;
