@@ -3,6 +3,8 @@
 #include <sstream>
 #include <cmath>
 #include <iomanip>
+#include <algorithm>
+#include <vector>
 #include "httplib.h"
 #include "json.hpp"
 
@@ -17,6 +19,28 @@ bool isPositive(double value) {
 // Helper function to validate range
 bool inRange(double value, double min, double max) {
     return value >= min && value <= max;
+}
+
+double roundTo2(double value) {
+    return std::round(value * 100.0) / 100.0;
+}
+
+std::string getPressureStatus(double pressure) {
+    if (pressure > 1.0) {
+        return "Critical";
+    }
+    if (pressure > 0.8) {
+        return "Warning";
+    }
+    return "OK";
+}
+
+json makeRecommendation(const std::string& area, const std::string& priority, const std::string& message) {
+    return json{
+        {"area", area},
+        {"priority", priority},
+        {"message", message}
+    };
 }
 
 // GenAI ValueScore Calculator
@@ -422,6 +446,781 @@ json calculateScalability(const json& input) {
     return response;
 }
 
+// Resource Calculation (Sizing) Calculator
+json calculateResourceSizing(const json& input) {
+    json response;
+
+    try {
+        auto requireNumber = [&](const std::string& field, double& value) -> bool {
+            if (!input.contains(field) || !input[field].is_number()) {
+                response["error"] = "Missing required field: " + field;
+                return false;
+            }
+            value = input[field].get<double>();
+            return true;
+        };
+
+        auto requireNonNegative = [&](const std::string& field, double& value) -> bool {
+            if (!requireNumber(field, value)) {
+                return false;
+            }
+            if (value < 0) {
+                response["error"] = field + " must be non-negative";
+                return false;
+            }
+            return true;
+        };
+
+        auto requirePositive = [&](const std::string& field, double& value) -> bool {
+            if (!requireNumber(field, value)) {
+                return false;
+            }
+            if (value <= 0) {
+                response["error"] = field + " must be positive";
+                return false;
+            }
+            return true;
+        };
+
+        auto getOptionalNumber = [&](const std::string& field, double defaultValue, double& value) -> bool {
+            if (!input.contains(field) || input[field].is_null()) {
+                value = defaultValue;
+                return true;
+            }
+            if (!input[field].is_number()) {
+                response["error"] = "Field must be numeric: " + field;
+                return false;
+            }
+            value = input[field].get<double>();
+            return true;
+        };
+
+        auto validateRatio = [&](const std::string& field, double value) -> bool {
+            if (!inRange(value, 0.0, 10.0)) {
+                response["error"] = field + " must be between 0 and 10";
+                return false;
+            }
+            return true;
+        };
+
+        auto validateFraction = [&](const std::string& field, double value) -> bool {
+            if (!inRange(value, 0.0, 1.0)) {
+                response["error"] = field + " must be between 0 and 1";
+                return false;
+            }
+            return true;
+        };
+
+        if (!input.contains("componentType") || !input["componentType"].is_string()) {
+            response["error"] = "Missing required field: componentType";
+            return response;
+        }
+
+        std::string componentType = input["componentType"];
+        if (componentType != "stateless" &&
+            componentType != "sql" &&
+            componentType != "nosql" &&
+            componentType != "vector_db" &&
+            componentType != "cache" &&
+            componentType != "logging" &&
+            componentType != "llm_vram") {
+            response["error"] = "componentType must be one of: stateless, sql, nosql, vector_db, cache, logging, llm_vram";
+            return response;
+        }
+
+        double peakRps = 0.0;
+        double avgLatencyMs = 0.0;
+        double avgRequestSizeKB = 0.0;
+        double avgResponseSizeKB = 0.0;
+        double replicas = 0.0;
+        double safetyFactor = 1.3;
+        double peakFactor = 1.5;
+
+        response["componentType"] = componentType;
+        double concurrency = 0.0;
+        double networkMBps = 0.0;
+        double networkGbps = 0.0;
+
+        if (!getOptionalNumber("safetyFactor", 1.3, safetyFactor)) {
+            return response;
+        }
+        if (safetyFactor <= 0) {
+            response["error"] = "safetyFactor must be positive";
+            return response;
+        }
+
+        if (componentType != "llm_vram") {
+            if (!requirePositive("peakRps", peakRps) ||
+                !requirePositive("avgLatencyMs", avgLatencyMs) ||
+                !requireNonNegative("avgRequestSizeKB", avgRequestSizeKB) ||
+                !requireNonNegative("avgResponseSizeKB", avgResponseSizeKB) ||
+                !requirePositive("replicas", replicas) ||
+                !getOptionalNumber("peakFactor", 1.5, peakFactor)) {
+                return response;
+            }
+
+            if (peakFactor <= 0) {
+                response["error"] = "peakFactor must be positive";
+                return response;
+            }
+
+            concurrency = peakRps * (avgLatencyMs / 1000.0);
+            networkMBps = peakRps * (avgRequestSizeKB + avgResponseSizeKB) / 1024.0;
+            networkGbps = (networkMBps * 8.0) / 1024.0;
+
+            response["concurrency"] = roundTo2(concurrency);
+            response["networkMBps"] = roundTo2(networkMBps);
+            response["networkGbps"] = roundTo2(networkGbps);
+        }
+
+        if (componentType == "stateless") {
+            double cpuSecondsPerRequest = 0.0;
+            double baseRamGB = 0.0;
+            double memPerRequestMB = 0.0;
+            double vcpuPerNode = 0.0;
+            double ramPerNodeGB = 0.0;
+
+            if (!requireNonNegative("cpuSecondsPerRequest", cpuSecondsPerRequest) ||
+                !requireNonNegative("baseRamGB", baseRamGB) ||
+                !requireNonNegative("memPerRequestMB", memPerRequestMB) ||
+                !requirePositive("vcpuPerNode", vcpuPerNode) ||
+                !requirePositive("ramPerNodeGB", ramPerNodeGB)) {
+                return response;
+            }
+
+            double requiredVcpu = (peakRps * cpuSecondsPerRequest * peakFactor * safetyFactor) / 0.65;
+            double requiredRamGB =
+                ((baseRamGB + (concurrency * memPerRequestMB / 1024.0)) * peakFactor * safetyFactor) / 0.75;
+            double nodesByCpu = vcpuPerNode > 0 ? requiredVcpu / vcpuPerNode : 0.0;
+            double nodesByRam = ramPerNodeGB > 0 ? requiredRamGB / ramPerNodeGB : 0.0;
+            long long requiredNodes = static_cast<long long>(std::ceil(std::max(nodesByCpu, nodesByRam)));
+
+            response["requiredVcpu"] = roundTo2(requiredVcpu);
+            response["requiredRamGB"] = roundTo2(requiredRamGB);
+            response["requiredNodes"] = requiredNodes;
+        } else if (componentType == "sql") {
+            double dataGB = 0.0;
+            double hotDataGB = 0.0;
+            double readRps = 0.0;
+            double writeRps = 0.0;
+            double cpuReadSec = 0.0;
+            double cpuWriteSec = 0.0;
+            double indexRatio = 0.5;
+            double walGB = 0.0;
+            double tempGB = 0.0;
+            double queryWorkspaceGB = 0.0;
+            double osReserveGB = 0.0;
+            double cacheCoverageRatio = 0.7;
+
+            if (!requirePositive("dataGB", dataGB) ||
+                !requireNonNegative("hotDataGB", hotDataGB) ||
+                !requireNonNegative("readRps", readRps) ||
+                !requireNonNegative("writeRps", writeRps) ||
+                !requireNonNegative("cpuReadSec", cpuReadSec) ||
+                !requireNonNegative("cpuWriteSec", cpuWriteSec) ||
+                !getOptionalNumber("indexRatio", 0.5, indexRatio) ||
+                !requireNonNegative("walGB", walGB) ||
+                !requireNonNegative("tempGB", tempGB) ||
+                !requireNonNegative("queryWorkspaceGB", queryWorkspaceGB) ||
+                !requireNonNegative("osReserveGB", osReserveGB) ||
+                !getOptionalNumber("cacheCoverageRatio", 0.7, cacheCoverageRatio)) {
+                return response;
+            }
+
+            if (!validateRatio("indexRatio", indexRatio) ||
+                !validateFraction("cacheCoverageRatio", cacheCoverageRatio)) {
+                return response;
+            }
+            if (hotDataGB > dataGB) {
+                response["error"] = "hotDataGB cannot exceed dataGB";
+                return response;
+            }
+
+            double sqlDiskGB =
+                ((dataGB + dataGB * indexRatio + walGB + tempGB) * replicas * safetyFactor) / 0.75;
+            double sqlRamGB =
+                ((hotDataGB * cacheCoverageRatio + queryWorkspaceGB + osReserveGB) * safetyFactor) / 0.75;
+            double sqlVcpu =
+                (((readRps * cpuReadSec) + (writeRps * cpuWriteSec)) * peakFactor * safetyFactor) / 0.55;
+
+            response["sqlVcpu"] = roundTo2(sqlVcpu);
+            response["sqlRamGB"] = roundTo2(sqlRamGB);
+            response["sqlDiskGB"] = roundTo2(sqlDiskGB);
+        } else if (componentType == "nosql") {
+            double dataGB = 0.0;
+            double hotDataGB = 0.0;
+            double readRps = 0.0;
+            double writeRps = 0.0;
+            double rpsPerShard = 0.0;
+            double dataGBPerShard = 0.0;
+            double cpuReadSec = 0.0;
+            double cpuWriteSec = 0.0;
+            double indexRatio = 0.2;
+            double compactionRatio = 0.3;
+            double cacheRatio = 0.3;
+            double memtableGB = 0.0;
+            double osReserveGB = 0.0;
+
+            if (!requirePositive("dataGB", dataGB) ||
+                !requireNonNegative("hotDataGB", hotDataGB) ||
+                !requireNonNegative("readRps", readRps) ||
+                !requireNonNegative("writeRps", writeRps) ||
+                !requirePositive("rpsPerShard", rpsPerShard) ||
+                !requirePositive("dataGBPerShard", dataGBPerShard) ||
+                !requireNonNegative("cpuReadSec", cpuReadSec) ||
+                !requireNonNegative("cpuWriteSec", cpuWriteSec) ||
+                !getOptionalNumber("indexRatio", 0.2, indexRatio) ||
+                !getOptionalNumber("compactionRatio", 0.3, compactionRatio) ||
+                !getOptionalNumber("cacheRatio", 0.3, cacheRatio) ||
+                !requireNonNegative("memtableGB", memtableGB) ||
+                !requireNonNegative("osReserveGB", osReserveGB)) {
+                return response;
+            }
+
+            if (!validateRatio("indexRatio", indexRatio) ||
+                !validateRatio("compactionRatio", compactionRatio) ||
+                !validateFraction("cacheRatio", cacheRatio)) {
+                return response;
+            }
+            if (hotDataGB > dataGB) {
+                response["error"] = "hotDataGB cannot exceed dataGB";
+                return response;
+            }
+
+            long long shards = std::max(
+                static_cast<long long>(std::ceil(peakRps / rpsPerShard)),
+                static_cast<long long>(std::ceil(dataGB / dataGBPerShard))
+            );
+            long long nosqlNodes = static_cast<long long>(std::ceil(shards * replicas));
+            double nosqlDiskGB =
+                (dataGB * (1.0 + indexRatio + compactionRatio) * replicas * safetyFactor) / 0.75;
+            double nosqlRamGB =
+                ((hotDataGB * cacheRatio + memtableGB + osReserveGB) * safetyFactor) / 0.75;
+            double nosqlVcpu =
+                (((readRps * cpuReadSec) + (writeRps * cpuWriteSec)) * peakFactor * safetyFactor) / 0.60;
+
+            response["shards"] = shards;
+            response["nosqlNodes"] = nosqlNodes;
+            response["nosqlVcpu"] = roundTo2(nosqlVcpu);
+            response["nosqlRamGB"] = roundTo2(nosqlRamGB);
+            response["nosqlDiskGB"] = roundTo2(nosqlDiskGB);
+        } else if (componentType == "vector_db") {
+            double numVectors = 0.0;
+            double dimension = 0.0;
+            double metadataBytesPerVector = 0.0;
+            double indexRatio = 0.0;
+            double residentFraction = 0.0;
+            double indexResidentFraction = 0.0;
+            double peakQueryQps = 0.0;
+            double candidatesScanned = 0.0;
+            double vectorOpsPerCorePerSecond = 0.0;
+            double queryBufferGB = 0.0;
+            double walGB = 0.0;
+            double snapshotGB = 0.0;
+            double osReserveGB = 0.0;
+
+            if (!requirePositive("numVectors", numVectors) ||
+                !requirePositive("dimension", dimension) ||
+                !requireNonNegative("metadataBytesPerVector", metadataBytesPerVector) ||
+                !requireNonNegative("peakQueryQps", peakQueryQps) ||
+                !requirePositive("candidatesScanned", candidatesScanned) ||
+                !requirePositive("vectorOpsPerCorePerSecond", vectorOpsPerCorePerSecond) ||
+                !requireNonNegative("queryBufferGB", queryBufferGB) ||
+                !requireNonNegative("walGB", walGB) ||
+                !requireNonNegative("snapshotGB", snapshotGB) ||
+                !requireNonNegative("osReserveGB", osReserveGB) ||
+                !getOptionalNumber("indexRatio", 0.0, indexRatio) ||
+                !getOptionalNumber("residentFraction", 0.0, residentFraction) ||
+                !getOptionalNumber("indexResidentFraction", 0.0, indexResidentFraction)) {
+                return response;
+            }
+
+            if (!input.contains("precision") || !input["precision"].is_string()) {
+                response["error"] = "Missing required field: precision";
+                return response;
+            }
+
+            std::string precision = input["precision"];
+            double bytesPerElement = 0.0;
+            if (precision == "fp32") {
+                bytesPerElement = 4.0;
+            } else if (precision == "fp16") {
+                bytesPerElement = 2.0;
+            } else if (precision == "int8") {
+                bytesPerElement = 1.0;
+            } else if (precision == "int4") {
+                bytesPerElement = 0.5;
+            } else {
+                response["error"] = "precision must be one of: fp32, fp16, int8, int4";
+                return response;
+            }
+
+            if (!validateRatio("indexRatio", indexRatio) ||
+                !validateFraction("residentFraction", residentFraction) ||
+                !validateFraction("indexResidentFraction", indexResidentFraction)) {
+                return response;
+            }
+
+            const long double gib = 1024.0L * 1024.0L * 1024.0L;
+            long double rawVectorGB = (static_cast<long double>(numVectors) * dimension * bytesPerElement) / gib;
+            long double metadataGB = (static_cast<long double>(numVectors) * metadataBytesPerVector) / gib;
+            long double indexGB = rawVectorGB * indexRatio;
+            long double vectorRamGB =
+                (((rawVectorGB * residentFraction) +
+                  (indexGB * indexResidentFraction) +
+                  queryBufferGB +
+                  osReserveGB) * safetyFactor) / 0.70;
+            long double vectorDiskGB =
+                ((rawVectorGB + metadataGB + indexGB + walGB + snapshotGB) * replicas * safetyFactor) / 0.75;
+            long double vectorCpuSecPerQuery =
+                (static_cast<long double>(candidatesScanned) * dimension) / vectorOpsPerCorePerSecond;
+            long double vectorVcpu =
+                (peakQueryQps * vectorCpuSecPerQuery * peakFactor * safetyFactor) / 0.50;
+
+            response["rawVectorGB"] = roundTo2(static_cast<double>(rawVectorGB));
+            response["metadataGB"] = roundTo2(static_cast<double>(metadataGB));
+            response["indexGB"] = roundTo2(static_cast<double>(indexGB));
+            response["vectorVcpu"] = roundTo2(static_cast<double>(vectorVcpu));
+            response["vectorRamGB"] = roundTo2(static_cast<double>(vectorRamGB));
+            response["vectorDiskGB"] = roundTo2(static_cast<double>(vectorDiskGB));
+        } else if (componentType == "cache") {
+            double hotCacheDataGB = 0.0;
+            double serializationOverhead = 1.2;
+            double evictionHeadroom = 1.15;
+            double rpsPerCore = 0.0;
+
+            if (!requirePositive("hotCacheDataGB", hotCacheDataGB) ||
+                !getOptionalNumber("serializationOverhead", 1.2, serializationOverhead) ||
+                !getOptionalNumber("evictionHeadroom", 1.15, evictionHeadroom) ||
+                !requirePositive("rpsPerCore", rpsPerCore)) {
+                return response;
+            }
+
+            if (serializationOverhead < 0 || evictionHeadroom < 0) {
+                response["error"] = "Cache overhead values must be non-negative";
+                return response;
+            }
+
+            double cacheRamGB =
+                (hotCacheDataGB * serializationOverhead * evictionHeadroom * safetyFactor) / 0.75;
+            double cacheVcpu = (peakRps * peakFactor * safetyFactor) / (rpsPerCore * 0.65);
+
+            response["cacheVcpu"] = roundTo2(cacheVcpu);
+            response["cacheRamGB"] = roundTo2(cacheRamGB);
+        } else if (componentType == "logging") {
+            double eventsPerSec = 0.0;
+            double avgLogKB = 0.0;
+            double retentionDays = 0.0;
+            double replicationFactor = 0.0;
+            double overheadRatio = 0.0;
+
+            if (!requirePositive("eventsPerSec", eventsPerSec) ||
+                !requirePositive("avgLogKB", avgLogKB) ||
+                !requirePositive("retentionDays", retentionDays) ||
+                !requirePositive("replicationFactor", replicationFactor) ||
+                !requireNonNegative("overheadRatio", overheadRatio)) {
+                return response;
+            }
+
+            if (!validateRatio("overheadRatio", overheadRatio)) {
+                return response;
+            }
+
+            double dailyLogGB = (eventsPerSec * avgLogKB * 86400.0) / (1024.0 * 1024.0);
+            double loggingDiskGB =
+                (dailyLogGB * retentionDays * replicationFactor * (1.0 + overheadRatio) * safetyFactor) / 0.75;
+
+            response["dailyLogGB"] = roundTo2(dailyLogGB);
+            response["loggingDiskGB"] = roundTo2(loggingDiskGB);
+        } else if (componentType == "llm_vram") {
+            double modelParameters = 0.0;
+            double batchSize = 0.0;
+            double contextLength = 0.0;
+            double hiddenSize = 0.0;
+            double numLayers = 0.0;
+
+            if (!requirePositive("modelParameters", modelParameters) ||
+                !requirePositive("batchSize", batchSize) ||
+                !requirePositive("contextLength", contextLength) ||
+                !requirePositive("hiddenSize", hiddenSize) ||
+                !requirePositive("numLayers", numLayers)) {
+                return response;
+            }
+            if (!input.contains("precisionType") || !input["precisionType"].is_string()) {
+                response["error"] = "Missing required field: precisionType";
+                return response;
+            }
+            if (!input.contains("architectureType") || !input["architectureType"].is_string()) {
+                response["error"] = "Missing required field: architectureType";
+                return response;
+            }
+
+            std::string precisionType = input["precisionType"];
+            std::string architectureType = input["architectureType"];
+            if (architectureType != "decoder_only" &&
+                architectureType != "encoder_decoder" &&
+                architectureType != "other") {
+                response["error"] = "architectureType must be one of: decoder_only, encoder_decoder, other";
+                return response;
+            }
+
+            double bytesPerParam = 0.0;
+            if (precisionType == "fp32") {
+                bytesPerParam = 4.0;
+            } else if (precisionType == "fp16") {
+                bytesPerParam = 2.0;
+            } else if (precisionType == "int8") {
+                bytesPerParam = 1.0;
+            } else if (precisionType == "int4") {
+                bytesPerParam = 0.5;
+            } else {
+                response["error"] = "precisionType must be one of: fp32, fp16, int8, int4";
+                return response;
+            }
+
+            bool hasAttentionHeads = input.contains("numAttentionHeads") && input["numAttentionHeads"].is_number();
+            bool hasKeyValueHeads = input.contains("numKeyValueHeads") && input["numKeyValueHeads"].is_number();
+            double numAttentionHeads = 0.0;
+            double numKeyValueHeads = 0.0;
+
+            if (hasAttentionHeads) {
+                numAttentionHeads = input["numAttentionHeads"].get<double>();
+                if (numAttentionHeads <= 0) {
+                    response["error"] = "numAttentionHeads must be positive when provided";
+                    return response;
+                }
+            }
+
+            if (hasKeyValueHeads) {
+                numKeyValueHeads = input["numKeyValueHeads"].get<double>();
+                if (numKeyValueHeads <= 0) {
+                    response["error"] = "numKeyValueHeads must be positive when provided";
+                    return response;
+                }
+            }
+
+            const long double gib = 1024.0L * 1024.0L * 1024.0L;
+            long double weightMemoryGB = (static_cast<long double>(modelParameters) * bytesPerParam) / gib;
+            long double kvCacheGB =
+                (static_cast<long double>(batchSize) * contextLength * hiddenSize * 2.0L * bytesPerParam * numLayers) / gib;
+            long double activationGB = 0.0L;
+            long double prefillActivationGB = 0.0L;
+            long double decodeWorkspaceGB = 0.0L;
+            long double fallbackActivationMultiplier = 3.0L;
+            bool usedFallbackHeuristic = architectureType != "decoder_only" || !hasAttentionHeads;
+            long double numAttentionHeadsUsed = 0.0L;
+            long double numKeyValueHeadsUsed = 0.0L;
+            long double gqaRatio = 1.0L;
+
+            if (!usedFallbackHeuristic) {
+                numAttentionHeadsUsed = numAttentionHeads;
+                numKeyValueHeadsUsed = hasKeyValueHeads ? numKeyValueHeads : numAttentionHeads;
+
+                if (numKeyValueHeadsUsed > numAttentionHeadsUsed) {
+                    response["error"] = "numKeyValueHeads cannot exceed numAttentionHeads";
+                    return response;
+                }
+
+                gqaRatio = numKeyValueHeadsUsed / numAttentionHeadsUsed;
+                prefillActivationGB =
+                    (static_cast<long double>(batchSize) * contextLength * hiddenSize * numLayers * bytesPerParam * (2.0L + gqaRatio)) / gib;
+                decodeWorkspaceGB =
+                    (static_cast<long double>(batchSize) * hiddenSize * numLayers * bytesPerParam * (6.0L + (2.0L * gqaRatio))) / gib;
+                activationGB = prefillActivationGB + decodeWorkspaceGB;
+            } else {
+                activationGB =
+                    (static_cast<long double>(batchSize) * contextLength * hiddenSize * numLayers * bytesPerParam * fallbackActivationMultiplier) / gib;
+            }
+
+            long double totalVramGB =
+                (weightMemoryGB + kvCacheGB + activationGB) * safetyFactor;
+
+            response["architectureType"] = architectureType;
+            response["numLayers"] = static_cast<long long>(std::llround(numLayers));
+            response["weightMemoryGB"] = roundTo2(static_cast<double>(weightMemoryGB));
+            response["kvCacheGB"] = roundTo2(static_cast<double>(kvCacheGB));
+            response["activationGB"] = roundTo2(static_cast<double>(activationGB));
+            response["totalVramGB"] = roundTo2(static_cast<double>(totalVramGB));
+            response["usedFallbackHeuristic"] = usedFallbackHeuristic;
+
+            if (!usedFallbackHeuristic) {
+                response["numAttentionHeadsUsed"] = static_cast<long long>(std::llround(numAttentionHeadsUsed));
+                response["numKeyValueHeadsUsed"] = static_cast<long long>(std::llround(numKeyValueHeadsUsed));
+                response["gqaRatio"] = roundTo2(static_cast<double>(gqaRatio));
+                response["prefillActivationGB"] = roundTo2(static_cast<double>(prefillActivationGB));
+                response["decodeWorkspaceGB"] = roundTo2(static_cast<double>(decodeWorkspaceGB));
+            } else {
+                response["fallbackActivationMultiplier"] = roundTo2(static_cast<double>(fallbackActivationMultiplier));
+            }
+        }
+
+        bool includeTco = input.value("includeTco", false);
+        if (includeTco) {
+            double hardwareCapex = 0.0;
+            double storageCapex = 0.0;
+            double networkCapex = 0.0;
+            double annualPowerCost = 0.0;
+            double annualCoolingCost = 0.0;
+            double annualSupportCost = 0.0;
+            double annualLicensingCost = 0.0;
+            double annualStaffCost = 0.0;
+            double annualDowntimeRiskCost = 0.0;
+            double years = 0.0;
+
+            double monthlyComputeCost = 0.0;
+            double monthlyStorageCost = 0.0;
+            double monthlyBackupCost = 0.0;
+            double monthlyEgressCost = 0.0;
+            double monthlyManagedServicesCost = 0.0;
+            double monthlySupportPlanCost = 0.0;
+            double monthlyStaffCost = 0.0;
+            double monthlyDowntimeRiskCost = 0.0;
+            double months = 0.0;
+
+            if (!requireNonNegative("hardwareCapex", hardwareCapex) ||
+                !requireNonNegative("storageCapex", storageCapex) ||
+                !requireNonNegative("networkCapex", networkCapex) ||
+                !requireNonNegative("annualPowerCost", annualPowerCost) ||
+                !requireNonNegative("annualCoolingCost", annualCoolingCost) ||
+                !requireNonNegative("annualSupportCost", annualSupportCost) ||
+                !requireNonNegative("annualLicensingCost", annualLicensingCost) ||
+                !requireNonNegative("annualStaffCost", annualStaffCost) ||
+                !requireNonNegative("annualDowntimeRiskCost", annualDowntimeRiskCost) ||
+                !requirePositive("years", years) ||
+                !requireNonNegative("monthlyComputeCost", monthlyComputeCost) ||
+                !requireNonNegative("monthlyStorageCost", monthlyStorageCost) ||
+                !requireNonNegative("monthlyBackupCost", monthlyBackupCost) ||
+                !requireNonNegative("monthlyEgressCost", monthlyEgressCost) ||
+                !requireNonNegative("monthlyManagedServicesCost", monthlyManagedServicesCost) ||
+                !requireNonNegative("monthlySupportPlanCost", monthlySupportPlanCost) ||
+                !requireNonNegative("monthlyStaffCost", monthlyStaffCost) ||
+                !requireNonNegative("monthlyDowntimeRiskCost", monthlyDowntimeRiskCost) ||
+                !requirePositive("months", months)) {
+                return response;
+            }
+
+            double tcoOnPrem =
+                hardwareCapex +
+                storageCapex +
+                networkCapex +
+                years * (
+                    annualPowerCost +
+                    annualCoolingCost +
+                    annualSupportCost +
+                    annualLicensingCost +
+                    annualStaffCost +
+                    annualDowntimeRiskCost
+                );
+
+            double tcoCloud =
+                months * (
+                    monthlyComputeCost +
+                    monthlyStorageCost +
+                    monthlyBackupCost +
+                    monthlyEgressCost +
+                    monthlyManagedServicesCost +
+                    monthlySupportPlanCost +
+                    monthlyStaffCost +
+                    monthlyDowntimeRiskCost
+                );
+
+            double upfrontOnPremCapex = hardwareCapex + storageCapex + networkCapex;
+            double monthlyOnPremEquivalent =
+                (annualPowerCost +
+                 annualCoolingCost +
+                 annualSupportCost +
+                 annualLicensingCost +
+                 annualStaffCost +
+                 annualDowntimeRiskCost) / 12.0;
+            double monthlyCloud =
+                monthlyComputeCost +
+                monthlyStorageCost +
+                monthlyBackupCost +
+                monthlyEgressCost +
+                monthlyManagedServicesCost +
+                monthlySupportPlanCost +
+                monthlyStaffCost +
+                monthlyDowntimeRiskCost;
+
+            response["tcoOnPrem"] = roundTo2(tcoOnPrem);
+            response["tcoCloud"] = roundTo2(tcoCloud);
+
+            if (monthlyCloud > monthlyOnPremEquivalent) {
+                double breakEvenMonths = upfrontOnPremCapex / (monthlyCloud - monthlyOnPremEquivalent);
+                response["breakEvenMonths"] = roundTo2(breakEvenMonths);
+            }
+        }
+
+        response["success"] = true;
+    } catch (const std::exception& e) {
+        response["error"] = std::string("Calculation error: ") + e.what();
+    }
+
+    return response;
+}
+
+json calculateLoadAnalysis(const json& input) {
+    json response;
+
+    try {
+        auto requireNumber = [&](const std::string& field, double& value) -> bool {
+            if (!input.contains(field) || !input[field].is_number()) {
+                response["error"] = "Missing required field: " + field;
+                return false;
+            }
+            value = input[field].get<double>();
+            return true;
+        };
+
+        auto requirePositive = [&](const std::string& field, double& value) -> bool {
+            if (!requireNumber(field, value)) {
+                return false;
+            }
+            if (value <= 0) {
+                response["error"] = field + " must be positive";
+                return false;
+            }
+            return true;
+        };
+
+        auto requireNonNegative = [&](const std::string& field, double& value) -> bool {
+            if (!requireNumber(field, value)) {
+                return false;
+            }
+            if (value < 0) {
+                response["error"] = field + " must be non-negative";
+                return false;
+            }
+            return true;
+        };
+
+        double expectedRps = 0.0;
+        double actualRps = 0.0;
+        double cpuUsagePercent = 0.0;
+        double cpuThresholdPercent = 0.0;
+        double ramUsageGB = 0.0;
+        double ramThresholdGB = 0.0;
+        double diskIops = 0.0;
+        double diskIopsThreshold = 0.0;
+        double latencyMs = 0.0;
+        double latencySlaMs = 0.0;
+        double errorRatePercent = 0.0;
+        double errorBudgetPercent = 0.0;
+
+        if (!requirePositive("expectedRps", expectedRps) ||
+            !requireNonNegative("actualRps", actualRps) ||
+            !requireNonNegative("cpuUsagePercent", cpuUsagePercent) ||
+            !requirePositive("cpuThresholdPercent", cpuThresholdPercent) ||
+            !requireNonNegative("ramUsageGB", ramUsageGB) ||
+            !requirePositive("ramThresholdGB", ramThresholdGB) ||
+            !requireNonNegative("diskIops", diskIops) ||
+            !requirePositive("diskIopsThreshold", diskIopsThreshold) ||
+            !requireNonNegative("latencyMs", latencyMs) ||
+            !requirePositive("latencySlaMs", latencySlaMs) ||
+            !requireNonNegative("errorRatePercent", errorRatePercent) ||
+            !requirePositive("errorBudgetPercent", errorBudgetPercent)) {
+            return response;
+        }
+
+        if (!input.contains("serviceType") || !input["serviceType"].is_string()) {
+            response["error"] = "Missing required field: serviceType";
+            return response;
+        }
+
+        std::string serviceType = input["serviceType"];
+        if (serviceType != "stateless" && serviceType != "stateful") {
+            response["error"] = "serviceType must be one of: stateless, stateful";
+            return response;
+        }
+
+        double trafficPressure = actualRps / expectedRps;
+        double cpuPressure = cpuUsagePercent / cpuThresholdPercent;
+        double ramPressure = ramUsageGB / ramThresholdGB;
+        double diskPressure = diskIops / diskIopsThreshold;
+        double latencyPressure = latencyMs / latencySlaMs;
+        double errorPressure = errorRatePercent / errorBudgetPercent;
+
+        std::vector<double> pressures = {
+            trafficPressure,
+            cpuPressure,
+            ramPressure,
+            diskPressure,
+            latencyPressure,
+            errorPressure
+        };
+
+        std::string overallStatus = "OK";
+        bool hasCritical = std::any_of(pressures.begin(), pressures.end(), [](double value) {
+            return value > 1.0;
+        });
+        bool hasWarning = std::any_of(pressures.begin(), pressures.end(), [](double value) {
+            return value > 0.8;
+        });
+
+        if (hasCritical) {
+            overallStatus = "Critical";
+        } else if (hasWarning) {
+            overallStatus = "Warning";
+        }
+
+        json recommendations = json::array();
+        if (cpuPressure > 1.0) {
+            recommendations.push_back(makeRecommendation("CPU", "High", "Increase backend/service instances or optimize CPU-heavy processing."));
+        } else if (cpuPressure > 0.8) {
+            recommendations.push_back(makeRecommendation("CPU", "Medium", "CPU usage is near the limit; monitor closely and prepare to scale."));
+        }
+
+        if (ramPressure > 1.0) {
+            recommendations.push_back(makeRecommendation("RAM", "High", "Increase RAM or reduce memory footprint; consider caching and memory profiling."));
+        } else if (ramPressure > 0.8) {
+            recommendations.push_back(makeRecommendation("RAM", "Medium", "Memory usage is near the limit; review heap/cache usage and prepare to increase RAM."));
+        }
+
+        if (diskPressure > 1.0) {
+            recommendations.push_back(makeRecommendation("Disk", "High", "Upgrade storage performance (SSD/NVMe), increase IOPS, or optimize read/write patterns."));
+        } else if (diskPressure > 0.8) {
+            recommendations.push_back(makeRecommendation("Disk", "Medium", "Disk subsystem is nearing saturation; monitor IOPS and storage latency."));
+        }
+
+        if (latencyPressure > 1.0) {
+            recommendations.push_back(makeRecommendation("Latency", "High", "Reduce latency by optimizing queries, scaling services, or adding caching."));
+        }
+
+        if (errorPressure > 1.0) {
+            recommendations.push_back(makeRecommendation("Errors", "High", "Investigate application errors, improve resilience, and review SLA/error-budget violations."));
+        }
+
+        if (trafficPressure > 1.0) {
+            recommendations.push_back(makeRecommendation("Traffic", "High", "Current traffic exceeds planned capacity; scale horizontally or revise sizing assumptions."));
+        }
+
+        if (recommendations.empty()) {
+            recommendations.push_back(makeRecommendation("Overall", "Info", "System load is within healthy limits based on current thresholds."));
+        }
+
+        response["success"] = true;
+        response["serviceType"] = serviceType;
+        response["trafficPressure"] = roundTo2(trafficPressure);
+        response["cpuPressure"] = roundTo2(cpuPressure);
+        response["ramPressure"] = roundTo2(ramPressure);
+        response["diskPressure"] = roundTo2(diskPressure);
+        response["latencyPressure"] = roundTo2(latencyPressure);
+        response["errorPressure"] = roundTo2(errorPressure);
+        response["trafficStatus"] = getPressureStatus(trafficPressure);
+        response["cpuStatus"] = getPressureStatus(cpuPressure);
+        response["ramStatus"] = getPressureStatus(ramPressure);
+        response["diskStatus"] = getPressureStatus(diskPressure);
+        response["latencyStatus"] = getPressureStatus(latencyPressure);
+        response["errorStatus"] = getPressureStatus(errorPressure);
+        response["overallStatus"] = overallStatus;
+        response["recommendations"] = recommendations;
+    } catch (const std::exception& e) {
+        response["error"] = std::string("Calculation error: ") + e.what();
+    }
+
+    return response;
+}
+
 int main() {
     Server svr;
 
@@ -565,6 +1364,32 @@ int main() {
         try {
             json input = json::parse(req.body);
             json result = calculateScalability(input);
+            res.set_content(result.dump(), "application/json");
+        } catch (const std::exception& e) {
+            json error;
+            error["error"] = std::string("Invalid JSON: ") + e.what();
+            res.status = 400;
+            res.set_content(error.dump(), "application/json");
+        }
+    });
+
+    svr.Post("/api/resource-sizing", [](const Request& req, Response& res) {
+        try {
+            json input = json::parse(req.body);
+            json result = calculateResourceSizing(input);
+            res.set_content(result.dump(), "application/json");
+        } catch (const std::exception& e) {
+            json error;
+            error["error"] = std::string("Invalid JSON: ") + e.what();
+            res.status = 400;
+            res.set_content(error.dump(), "application/json");
+        }
+    });
+
+    svr.Post("/api/load-analysis", [](const Request& req, Response& res) {
+        try {
+            json input = json::parse(req.body);
+            json result = calculateLoadAnalysis(input);
             res.set_content(result.dump(), "application/json");
         } catch (const std::exception& e) {
             json error;

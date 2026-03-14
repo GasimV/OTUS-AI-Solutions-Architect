@@ -282,6 +282,625 @@
 
                 <div class="result" id="sc-result"></div>
             </section>
+
+            <!-- Resource Calculation (Sizing) Calculator -->
+            <section class="calculator-card">
+                <h2>Resource Calculation (Sizing)</h2>
+                <p class="formula">Concurrency = PeakRPS &times; (LatencyMs / 1000)<br>
+                   NetworkThroughput = PeakRPS &times; (RequestKB + ResponseKB)</p>
+
+                <div class="field-section">
+                    <h3>Common Inputs</h3>
+
+                    <div class="form-group">
+                        <label for="sizing-component-type">Component Type:</label>
+                        <select id="sizing-component-type" onchange="toggleSizingFields()">
+                            <option value="stateless">Stateless service</option>
+                            <option value="sql">SQL database</option>
+                            <option value="nosql">NoSQL database</option>
+                            <option value="vector_db">Vector DB</option>
+                            <option value="cache">Cache</option>
+                            <option value="logging">Logging / Monitoring</option>
+                            <option value="llm_vram">VRAM needs</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="sizing-safety-factor">Safety factor:</label>
+                        <input type="number" id="sizing-safety-factor" min="0.1" step="0.1" value="1.3" required>
+                    </div>
+
+                    <div id="sizing-traffic-common-fields">
+                        <div class="form-group">
+                            <label for="sizing-peak-rps">Peak RPS:</label>
+                            <input type="number" id="sizing-peak-rps" min="0.1" step="0.1" placeholder="e.g. 1000" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="sizing-latency">Average latency (ms):</label>
+                            <input type="number" id="sizing-latency" min="0.1" step="0.1" placeholder="e.g. 150" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="sizing-req-kb">Average request size (KB):</label>
+                            <input type="number" id="sizing-req-kb" min="0" step="0.1" placeholder="e.g. 4" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="sizing-resp-kb">Average response size (KB):</label>
+                            <input type="number" id="sizing-resp-kb" min="0" step="0.1" placeholder="e.g. 12" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="sizing-replicas">Replicas:</label>
+                            <input type="number" id="sizing-replicas" min="1" step="1" value="3" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="sizing-peak-factor">Peak factor:</label>
+                            <input type="number" id="sizing-peak-factor" min="0.1" step="0.1" value="1.5" required>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="field-section sizing-fields" id="sizing-fields-stateless">
+                    <h3>Stateless Service Inputs</h3>
+
+                    <div class="form-group">
+                        <label for="stateless-cpu-seconds">CPU seconds per request:</label>
+                        <input type="number" id="stateless-cpu-seconds" min="0" step="0.0001" placeholder="e.g. 0.01">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="stateless-base-ram">Base RAM (GB):</label>
+                        <input type="number" id="stateless-base-ram" min="0" step="0.1" placeholder="e.g. 4">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="stateless-mem-request">Memory per in-flight request (MB):</label>
+                        <input type="number" id="stateless-mem-request" min="0" step="0.1" placeholder="e.g. 8">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="stateless-vcpu-node">vCPU per node:</label>
+                        <input type="number" id="stateless-vcpu-node" min="1" step="1" placeholder="e.g. 8">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="stateless-ram-node">RAM per node (GB):</label>
+                        <input type="number" id="stateless-ram-node" min="0.1" step="0.1" placeholder="e.g. 32">
+                    </div>
+                </div>
+
+                <div class="field-section sizing-fields hidden" id="sizing-fields-sql">
+                    <h3>SQL Database Inputs</h3>
+
+                    <div class="form-group">
+                        <label for="sql-data-gb">Total data (GB):</label>
+                        <input type="number" id="sql-data-gb" min="0.1" step="0.1" placeholder="e.g. 500">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="sql-hot-data-gb">Hot data / working set (GB):</label>
+                        <input type="number" id="sql-hot-data-gb" min="0" step="0.1" placeholder="e.g. 150">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="sql-read-rps">Read RPS:</label>
+                        <input type="number" id="sql-read-rps" min="0" step="0.1" placeholder="e.g. 700">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="sql-write-rps">Write RPS:</label>
+                        <input type="number" id="sql-write-rps" min="0" step="0.1" placeholder="e.g. 200">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="sql-cpu-read">CPU seconds per read:</label>
+                        <input type="number" id="sql-cpu-read" min="0" step="0.0001" placeholder="e.g. 0.002">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="sql-cpu-write">CPU seconds per write:</label>
+                        <input type="number" id="sql-cpu-write" min="0" step="0.0001" placeholder="e.g. 0.004">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="sql-index-ratio">Index ratio:</label>
+                        <input type="number" id="sql-index-ratio" min="0" max="10" step="0.1" value="0.5">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="sql-wal-gb">WAL (Write-Ahead Logging) / journal (GB):</label>
+                        <input type="number" id="sql-wal-gb" min="0" step="0.1" placeholder="e.g. 40">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="sql-temp-gb">Temp space (GB):</label>
+                        <input type="number" id="sql-temp-gb" min="0" step="0.1" placeholder="e.g. 30">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="sql-query-workspace-gb">Query workspace (GB):</label>
+                        <input type="number" id="sql-query-workspace-gb" min="0" step="0.1" placeholder="e.g. 16">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="sql-os-reserve-gb">OS reserve (GB):</label>
+                        <input type="number" id="sql-os-reserve-gb" min="0" step="0.1" placeholder="e.g. 8">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="sql-cache-coverage">Cache coverage ratio:</label>
+                        <input type="number" id="sql-cache-coverage" min="0" max="1" step="0.05" value="0.7">
+                    </div>
+                </div>
+
+                <div class="field-section sizing-fields hidden" id="sizing-fields-nosql">
+                    <h3>NoSQL Database Inputs</h3>
+
+                    <div class="form-group">
+                        <label for="nosql-data-gb">Total data (GB):</label>
+                        <input type="number" id="nosql-data-gb" min="0.1" step="0.1" placeholder="e.g. 800">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="nosql-hot-data-gb">Hot data (GB):</label>
+                        <input type="number" id="nosql-hot-data-gb" min="0" step="0.1" placeholder="e.g. 240">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="nosql-read-rps">Read RPS:</label>
+                        <input type="number" id="nosql-read-rps" min="0" step="0.1" placeholder="e.g. 1500">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="nosql-write-rps">Write RPS:</label>
+                        <input type="number" id="nosql-write-rps" min="0" step="0.1" placeholder="e.g. 400">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="nosql-rps-shard">RPS per shard:</label>
+                        <input type="number" id="nosql-rps-shard" min="0.1" step="0.1" placeholder="e.g. 500">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="nosql-data-shard">Data GB per shard:</label>
+                        <input type="number" id="nosql-data-shard" min="0.1" step="0.1" placeholder="e.g. 200">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="nosql-cpu-read">CPU seconds per read:</label>
+                        <input type="number" id="nosql-cpu-read" min="0" step="0.0001" placeholder="e.g. 0.0015">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="nosql-cpu-write">CPU seconds per write:</label>
+                        <input type="number" id="nosql-cpu-write" min="0" step="0.0001" placeholder="e.g. 0.003">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="nosql-index-ratio">Index ratio:</label>
+                        <input type="number" id="nosql-index-ratio" min="0" max="10" step="0.1" value="0.2">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="nosql-compaction-ratio">Compaction ratio:</label>
+                        <input type="number" id="nosql-compaction-ratio" min="0" max="10" step="0.1" value="0.3">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="nosql-cache-ratio">Cache ratio:</label>
+                        <input type="number" id="nosql-cache-ratio" min="0" max="1" step="0.05" value="0.3">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="nosql-memtable-gb">Memtable (GB):</label>
+                        <input type="number" id="nosql-memtable-gb" min="0" step="0.1" placeholder="e.g. 16">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="nosql-os-reserve-gb">OS reserve (GB):</label>
+                        <input type="number" id="nosql-os-reserve-gb" min="0" step="0.1" placeholder="e.g. 8">
+                    </div>
+                </div>
+
+                <div class="field-section sizing-fields hidden" id="sizing-fields-vector_db">
+                    <h3>Vector DB Inputs</h3>
+
+                    <div class="form-group">
+                        <label for="vector-num-vectors">Number of vectors:</label>
+                        <input type="number" id="vector-num-vectors" min="1" step="1" placeholder="e.g. 1000000">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="vector-dimension">Vector dimension:</label>
+                        <input type="number" id="vector-dimension" min="1" step="1" placeholder="e.g. 1536">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="vector-precision">Precision type:</label>
+                        <select id="vector-precision">
+                            <option value="fp32">fp32</option>
+                            <option value="fp16">fp16</option>
+                            <option value="int8">int8</option>
+                            <option value="int4">int4</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="vector-metadata-bytes">Metadata bytes per vector:</label>
+                        <input type="number" id="vector-metadata-bytes" min="0" step="1" placeholder="e.g. 256">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="vector-index-ratio">Index ratio:</label>
+                        <input type="number" id="vector-index-ratio" min="0" max="10" step="0.1" value="1">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="vector-resident-fraction">Resident fraction:</label>
+                        <input type="number" id="vector-resident-fraction" min="0" max="1" step="0.05" value="0.5">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="vector-index-resident-fraction">Index resident fraction:</label>
+                        <input type="number" id="vector-index-resident-fraction" min="0" max="1" step="0.05" value="0.8">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="vector-peak-qps">Peak query QPS:</label>
+                        <input type="number" id="vector-peak-qps" min="0" step="0.1" placeholder="e.g. 150">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="vector-candidates-scanned">Candidates scanned:</label>
+                        <input type="number" id="vector-candidates-scanned" min="1" step="1" placeholder="e.g. 1000">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="vector-ops-core-sec">Vector ops per core per second:</label>
+                        <input type="number" id="vector-ops-core-sec" min="1" step="1" placeholder="e.g. 100000000">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="vector-query-buffer-gb">Query buffer (GB):</label>
+                        <input type="number" id="vector-query-buffer-gb" min="0" step="0.1" placeholder="e.g. 8">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="vector-wal-gb">WAL (Write-Ahead Logging)(GB):</label>
+                        <input type="number" id="vector-wal-gb" min="0" step="0.1" placeholder="e.g. 20">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="vector-snapshot-gb">Snapshot (GB):</label>
+                        <input type="number" id="vector-snapshot-gb" min="0" step="0.1" placeholder="e.g. 50">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="vector-os-reserve-gb">OS reserve (GB):</label>
+                        <input type="number" id="vector-os-reserve-gb" min="0" step="0.1" placeholder="e.g. 8">
+                    </div>
+                </div>
+
+                <div class="field-section sizing-fields hidden" id="sizing-fields-cache">
+                    <h3>Cache Inputs</h3>
+
+                    <div class="form-group">
+                        <label for="cache-hot-data-gb">Hot cache data (GB):</label>
+                        <input type="number" id="cache-hot-data-gb" min="0.1" step="0.1" placeholder="e.g. 120">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="cache-serialization-overhead">Serialization overhead:</label>
+                        <input type="number" id="cache-serialization-overhead" min="0" max="10" step="0.05" value="1.2">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="cache-eviction-headroom">Eviction headroom:</label>
+                        <input type="number" id="cache-eviction-headroom" min="0" max="10" step="0.05" value="1.15">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="cache-rps-core">RPS per core:</label>
+                        <input type="number" id="cache-rps-core" min="0.1" step="0.1" placeholder="e.g. 5000">
+                    </div>
+                </div>
+
+                <div class="field-section sizing-fields hidden" id="sizing-fields-logging">
+                    <h3>Logging / Monitoring Inputs</h3>
+
+                    <div class="form-group">
+                        <label for="logging-events-sec">Events per second:</label>
+                        <input type="number" id="logging-events-sec" min="0.1" step="0.1" placeholder="e.g. 500">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="logging-avg-kb">Avg log size (KB):</label>
+                        <input type="number" id="logging-avg-kb" min="0.01" step="0.01" placeholder="e.g. 2.5">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="logging-retention-days">Retention days:</label>
+                        <input type="number" id="logging-retention-days" min="1" step="1" value="30">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="logging-replication-factor">Replication factor:</label>
+                        <input type="number" id="logging-replication-factor" min="1" step="1" value="2">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="logging-overhead-ratio">Index / processing overhead ratio:</label>
+                        <input type="number" id="logging-overhead-ratio" min="0" max="10" step="0.1" value="0.5">
+                    </div>
+                </div>
+
+                <div class="field-section sizing-fields hidden" id="sizing-fields-llm_vram">
+                    <h3>VRAM Needs Inputs</h3>
+                    <p class="field-note">Weight memory = Parameters × Bytes/Param / 1024^3. KV cache = Batch × Context × Hidden × 2 × Bytes/Param × Layers / 1024^3. For decoder-only models, activation/workspace is estimated from model shape and GQA ratio = KV heads / attention heads; if head metadata is missing, a fallback shape-based multiplier is used.</p>
+
+                    <div class="form-group">
+                        <label for="vram-model-parameters">Model parameters:</label>
+                        <input type="number" id="vram-model-parameters" min="1" step="1" placeholder="e.g. 7000000000">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="vram-precision-type">Precision type:</label>
+                        <select id="vram-precision-type">
+                            <option value="fp32">fp32</option>
+                            <option value="fp16" selected>fp16</option>
+                            <option value="int8">int8</option>
+                            <option value="int4">int4</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="vram-batch-size">Batch size:</label>
+                        <input type="number" id="vram-batch-size" min="1" step="1" value="1">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="vram-context-length">Context length:</label>
+                        <input type="number" id="vram-context-length" min="1" step="1" value="4096">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="vram-hidden-size">Hidden size:</label>
+                        <input type="number" id="vram-hidden-size" min="1" step="1" value="4096">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="vram-num-layers">Number of layers:</label>
+                        <input type="number" id="vram-num-layers" min="1" step="1" value="32">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="vram-architecture-type">Architecture type:</label>
+                        <select id="vram-architecture-type">
+                            <option value="decoder_only" selected>decoder_only</option>
+                            <option value="encoder_decoder">encoder_decoder</option>
+                            <option value="other">other</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="vram-num-attention-heads">Attention heads (optional):</label>
+                        <input type="number" id="vram-num-attention-heads" min="1" step="1" placeholder="e.g. 32">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="vram-num-kv-heads">Key/value heads (optional, defaults to attention heads):</label>
+                        <input type="number" id="vram-num-kv-heads" min="1" step="1" placeholder="e.g. 8">
+                    </div>
+                </div>
+
+                <div class="field-section">
+                    <div class="form-group checkbox-group">
+                        <label for="sizing-include-tco">
+                            <input type="checkbox" id="sizing-include-tco" onchange="toggleTcoFields()">
+                            Include TCO comparison
+                        </label>
+                    </div>
+                </div>
+
+                <div class="field-section hidden" id="sizing-tco-fields">
+                    <h3>On-Prem TCO Inputs</h3>
+
+                    <div class="form-group">
+                        <label for="tco-hardware-capex">Hardware CapEx ($):</label>
+                        <input type="number" id="tco-hardware-capex" min="0" step="0.01" placeholder="e.g. 75000">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tco-storage-capex">Storage CapEx ($):</label>
+                        <input type="number" id="tco-storage-capex" min="0" step="0.01" placeholder="e.g. 25000">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tco-network-capex">Network CapEx ($):</label>
+                        <input type="number" id="tco-network-capex" min="0" step="0.01" placeholder="e.g. 12000">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tco-annual-power">Annual power cost ($):</label>
+                        <input type="number" id="tco-annual-power" min="0" step="0.01" placeholder="e.g. 9000">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tco-annual-cooling">Annual cooling cost ($):</label>
+                        <input type="number" id="tco-annual-cooling" min="0" step="0.01" placeholder="e.g. 5000">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tco-annual-support">Annual support cost ($):</label>
+                        <input type="number" id="tco-annual-support" min="0" step="0.01" placeholder="e.g. 12000">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tco-annual-licensing">Annual licensing cost ($):</label>
+                        <input type="number" id="tco-annual-licensing" min="0" step="0.01" placeholder="e.g. 18000">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tco-annual-staff">Annual staff cost ($):</label>
+                        <input type="number" id="tco-annual-staff" min="0" step="0.01" placeholder="e.g. 60000">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tco-annual-downtime">Annual downtime risk cost ($):</label>
+                        <input type="number" id="tco-annual-downtime" min="0" step="0.01" placeholder="e.g. 5000">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tco-years">Years:</label>
+                        <input type="number" id="tco-years" min="1" step="1" value="3">
+                    </div>
+
+                    <h3>Cloud TCO Inputs</h3>
+
+                    <div class="form-group">
+                        <label for="tco-monthly-compute">Monthly compute cost ($):</label>
+                        <input type="number" id="tco-monthly-compute" min="0" step="0.01" placeholder="e.g. 7000">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tco-monthly-storage">Monthly storage cost ($):</label>
+                        <input type="number" id="tco-monthly-storage" min="0" step="0.01" placeholder="e.g. 1500">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tco-monthly-backup">Monthly backup cost ($):</label>
+                        <input type="number" id="tco-monthly-backup" min="0" step="0.01" placeholder="e.g. 500">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tco-monthly-egress">Monthly egress cost ($):</label>
+                        <input type="number" id="tco-monthly-egress" min="0" step="0.01" placeholder="e.g. 800">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tco-monthly-managed">Monthly managed services cost ($):</label>
+                        <input type="number" id="tco-monthly-managed" min="0" step="0.01" placeholder="e.g. 2000">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tco-monthly-support">Monthly support plan cost ($):</label>
+                        <input type="number" id="tco-monthly-support" min="0" step="0.01" placeholder="e.g. 600">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tco-monthly-staff">Monthly staff cost ($):</label>
+                        <input type="number" id="tco-monthly-staff" min="0" step="0.01" placeholder="e.g. 4000">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tco-monthly-downtime">Monthly downtime risk cost ($):</label>
+                        <input type="number" id="tco-monthly-downtime" min="0" step="0.01" placeholder="e.g. 600">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tco-months-sizing">Months:</label>
+                        <input type="number" id="tco-months-sizing" min="1" step="1" value="36">
+                    </div>
+                </div>
+
+                <button onclick="calculateResourceSizing()">Calculate</button>
+
+                <p class="calculator-note">These are first-pass heuristic sizing estimates. Final sizing should be validated with production benchmarks.</p>
+
+                <div class="result" id="sizing-result"></div>
+            </section>
+
+            <!-- Load Analysis Calculator -->
+            <section class="calculator-card">
+                <h2>Load Analysis</h2>
+                <p class="formula">Pressure = ActualUsage / AllowedThreshold<br>
+                   Overall status is Critical if any pressure &gt; 1.0, Warning if any pressure &gt; 0.8, otherwise OK.</p>
+
+                <div class="field-section">
+                    <h3>Traffic and Service Inputs</h3>
+
+                    <div class="form-group">
+                        <label for="load-expected-rps">Expected RPS:</label>
+                        <input type="number" id="load-expected-rps" min="0.1" step="0.1" placeholder="e.g. 1000">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="load-actual-rps">Actual RPS:</label>
+                        <input type="number" id="load-actual-rps" min="0" step="0.1" placeholder="e.g. 800">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="load-service-type">Service type:</label>
+                        <select id="load-service-type">
+                            <option value="stateless">stateless</option>
+                            <option value="stateful">stateful</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="field-section">
+                    <h3>Capacity and SLA Inputs</h3>
+
+                    <div class="form-group">
+                        <label for="load-cpu-usage">CPU usage (%):</label>
+                        <input type="number" id="load-cpu-usage" min="0" step="0.1" placeholder="e.g. 50">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="load-cpu-threshold">CPU threshold (%):</label>
+                        <input type="number" id="load-cpu-threshold" min="0.1" step="0.1" value="80">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="load-ram-usage">RAM usage (GB):</label>
+                        <input type="number" id="load-ram-usage" min="0" step="0.1" placeholder="e.g. 12">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="load-ram-threshold">RAM threshold (GB):</label>
+                        <input type="number" id="load-ram-threshold" min="0.1" step="0.1" placeholder="e.g. 20">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="load-disk-iops">Disk IOPS (Input/Output Operations Per Second):</label>
+                        <input type="number" id="load-disk-iops" min="0" step="1" placeholder="e.g. 3000">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="load-disk-threshold">Disk IOPS (Input/Output Operations Per Second) threshold:</label>
+                        <input type="number" id="load-disk-threshold" min="1" step="1" placeholder="e.g. 5000">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="load-latency-ms">Latency (ms):</label>
+                        <input type="number" id="load-latency-ms" min="0" step="0.1" placeholder="e.g. 120">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="load-latency-sla-ms">Latency SLA (ms):</label>
+                        <input type="number" id="load-latency-sla-ms" min="0.1" step="0.1" placeholder="e.g. 200">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="load-error-rate">Error rate (%):</label>
+                        <input type="number" id="load-error-rate" min="0" step="0.01" placeholder="e.g. 0.5">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="load-error-budget">Error budget (%):</label>
+                        <input type="number" id="load-error-budget" min="0.01" step="0.01" value="1.0">
+                    </div>
+                </div>
+
+                <button onclick="calculateLoadAnalysis()">Calculate</button>
+
+                <p class="calculator-note">Use this to compare current production load against planned thresholds and surface capacity recommendations.</p>
+
+                <div class="result" id="load-analysis-result"></div>
+            </section>
         </main>
 
         <footer>
