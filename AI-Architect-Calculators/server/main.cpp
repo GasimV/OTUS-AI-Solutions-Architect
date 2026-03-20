@@ -880,8 +880,10 @@ json calculateResourceSizing(const json& input) {
 
             bool hasAttentionHeads = input.contains("numAttentionHeads") && input["numAttentionHeads"].is_number();
             bool hasKeyValueHeads = input.contains("numKeyValueHeads") && input["numKeyValueHeads"].is_number();
+            bool hasAttentionMode = input.contains("attentionMode") && input["attentionMode"].is_string();
             double numAttentionHeads = 0.0;
             double numKeyValueHeads = 0.0;
+            std::string attentionMode = "";
 
             if (hasAttentionHeads) {
                 numAttentionHeads = input["numAttentionHeads"].get<double>();
@@ -899,10 +901,51 @@ json calculateResourceSizing(const json& input) {
                 }
             }
 
+            if (hasAttentionMode) {
+                attentionMode = input["attentionMode"].get<std::string>();
+                if (attentionMode != "MHA" && attentionMode != "GQA" && attentionMode != "MQA") {
+                    response["error"] = "attentionMode must be one of: MHA, GQA, MQA";
+                    return response;
+                }
+                if (!hasAttentionHeads) {
+                    response["error"] = "numAttentionHeads is required when attentionMode is specified";
+                    return response;
+                }
+                if (attentionMode == "MHA") {
+                    numKeyValueHeads = numAttentionHeads;
+                    hasKeyValueHeads = true;
+                } else if (attentionMode == "GQA") {
+                    if (!hasKeyValueHeads) {
+                        response["error"] = "numKeyValueHeads is required for GQA mode";
+                        return response;
+                    }
+                } else if (attentionMode == "MQA") {
+                    numKeyValueHeads = 1.0;
+                    hasKeyValueHeads = true;
+                }
+            }
+
+            // Validate hiddenSize is divisible by numAttentionHeads when heads are provided
+            if (hasAttentionHeads) {
+                long long hiddenSizeInt = static_cast<long long>(std::llround(hiddenSize));
+                long long numHeadsInt = static_cast<long long>(std::llround(numAttentionHeads));
+                if (hiddenSizeInt % numHeadsInt != 0) {
+                    response["error"] = "hiddenSize must be divisible by numAttentionHeads";
+                    return response;
+                }
+            }
+
+            // Validate numKeyValueHeads <= numAttentionHeads when both are present
+            if (hasAttentionHeads && hasKeyValueHeads) {
+                if (numKeyValueHeads > numAttentionHeads) {
+                    response["error"] = "numKeyValueHeads cannot exceed numAttentionHeads";
+                    return response;
+                }
+            }
+
             const long double gib = 1024.0L * 1024.0L * 1024.0L;
             long double weightMemoryGB = (static_cast<long double>(modelParameters) * bytesPerParam) / gib;
-            long double kvCacheGB =
-                (static_cast<long double>(batchSize) * contextLength * hiddenSize * 2.0L * bytesPerParam * numLayers) / gib;
+            long double kvCacheGB = 0.0L;
             long double activationGB = 0.0L;
             long double prefillActivationGB = 0.0L;
             long double decodeWorkspaceGB = 0.0L;
@@ -915,11 +958,11 @@ json calculateResourceSizing(const json& input) {
             if (!usedFallbackHeuristic) {
                 numAttentionHeadsUsed = numAttentionHeads;
                 numKeyValueHeadsUsed = hasKeyValueHeads ? numKeyValueHeads : numAttentionHeads;
+                long double headDim = static_cast<long double>(hiddenSize) / numAttentionHeadsUsed;
 
-                if (numKeyValueHeadsUsed > numAttentionHeadsUsed) {
-                    response["error"] = "numKeyValueHeads cannot exceed numAttentionHeads";
-                    return response;
-                }
+                // KV cache: batchSize * contextLength * numLayers * 2 * numKVHeads * headDim * bytesPerParam
+                kvCacheGB =
+                    (static_cast<long double>(batchSize) * contextLength * numLayers * 2.0L * numKeyValueHeadsUsed * headDim * bytesPerParam) / gib;
 
                 gqaRatio = numKeyValueHeadsUsed / numAttentionHeadsUsed;
                 prefillActivationGB =
@@ -928,6 +971,9 @@ json calculateResourceSizing(const json& input) {
                     (static_cast<long double>(batchSize) * hiddenSize * numLayers * bytesPerParam * (6.0L + (2.0L * gqaRatio))) / gib;
                 activationGB = prefillActivationGB + decodeWorkspaceGB;
             } else {
+                // Fallback: assume MHA (numKVHeads = numAttentionHeads), so hiddenSize is correct
+                kvCacheGB =
+                    (static_cast<long double>(batchSize) * contextLength * hiddenSize * 2.0L * bytesPerParam * numLayers) / gib;
                 activationGB =
                     (static_cast<long double>(batchSize) * contextLength * hiddenSize * numLayers * bytesPerParam * fallbackActivationMultiplier) / gib;
             }
@@ -936,6 +982,9 @@ json calculateResourceSizing(const json& input) {
                 (weightMemoryGB + kvCacheGB + activationGB) * safetyFactor;
 
             response["architectureType"] = architectureType;
+            if (hasAttentionMode) {
+                response["attentionMode"] = attentionMode;
+            }
             response["numLayers"] = static_cast<long long>(std::llround(numLayers));
             response["weightMemoryGB"] = roundTo2(static_cast<double>(weightMemoryGB));
             response["kvCacheGB"] = roundTo2(static_cast<double>(kvCacheGB));

@@ -639,7 +639,7 @@
 
                 <div class="field-section sizing-fields hidden" id="sizing-fields-llm_vram">
                     <h3>VRAM Needs Inputs</h3>
-                    <p class="field-note">Weight memory = Parameters × Bytes/Param / 1024^3. KV cache = Batch × Context × Hidden × 2 × Bytes/Param × Layers / 1024^3. For decoder-only models, activation/workspace is estimated from model shape and GQA ratio = KV heads / attention heads; if head metadata is missing, a fallback shape-based multiplier is used.</p>
+                    <p class="field-note">Weight memory = Parameters × Bytes/Param / 1024^3. KV cache = Batch × Context × Layers × 2 × KV_Heads × Head_Dim × Bytes/Param / 1024^3 (where Head_Dim = Hidden / Attention_Heads). Select MHA/GQA/MQA to set KV heads correctly. For decoder-only models, activation/workspace is estimated from model shape and GQA ratio; if head metadata is missing, a fallback heuristic is used.</p>
 
                     <div class="form-group">
                         <label for="vram-model-parameters">Model parameters:</label>
@@ -686,12 +686,22 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="vram-num-attention-heads">Attention heads (optional):</label>
-                        <input type="number" id="vram-num-attention-heads" min="1" step="1" placeholder="e.g. 32">
+                        <label for="vram-attention-mode">Attention mode:</label>
+                        <select id="vram-attention-mode" onchange="toggleAttentionModeFields()">
+                            <option value="" selected>(auto / legacy)</option>
+                            <option value="MHA">MHA (Multi-Head Attention)</option>
+                            <option value="GQA">GQA (Grouped-Query Attention)</option>
+                            <option value="MQA">MQA (Multi-Query Attention)</option>
+                        </select>
                     </div>
 
                     <div class="form-group">
-                        <label for="vram-num-kv-heads">Key/value heads (optional, defaults to attention heads):</label>
+                        <label for="vram-num-attention-heads">Attention heads (required for MHA/GQA/MQA):</label>
+                        <input type="number" id="vram-num-attention-heads" min="1" step="1" placeholder="e.g. 32">
+                    </div>
+
+                    <div class="form-group" id="vram-kv-heads-group">
+                        <label for="vram-num-kv-heads">Key/value heads (required for GQA):</label>
                         <input type="number" id="vram-num-kv-heads" min="1" step="1" placeholder="e.g. 8">
                     </div>
                 </div>

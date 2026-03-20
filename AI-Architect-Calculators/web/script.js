@@ -727,6 +727,19 @@ function toggleSizingFields() {
     }
 }
 
+function toggleAttentionModeFields() {
+    const mode = document.getElementById('vram-attention-mode').value;
+    const kvGroup = document.getElementById('vram-kv-heads-group');
+    if (kvGroup) {
+        // Show KV heads field only for GQA or auto/legacy mode
+        if (mode === 'MHA' || mode === 'MQA') {
+            kvGroup.style.display = 'none';
+        } else {
+            kvGroup.style.display = '';
+        }
+    }
+}
+
 function toggleTcoFields() {
     const includeTco = document.getElementById('sizing-include-tco').checked;
     const tcoSection = document.getElementById('sizing-tco-fields');
@@ -801,6 +814,9 @@ function renderSizingResult(data) {
         summaryLines.push(metricLine('Total VRAM (GB)', formatNumber(data.totalVramGB)));
         detailLines.push(metricLine('KV Cache (GB)', formatNumber(data.kvCacheGB)));
         detailLines.push(metricLine('Architecture Type', data.architectureType));
+        if (data.attentionMode) {
+            detailLines.push(metricLine('Attention Mode', data.attentionMode));
+        }
         detailLines.push(metricLine('Layers', formatInteger(data.numLayers)));
 
         if (data.usedFallbackHeuristic) {
@@ -1078,6 +1094,10 @@ async function calculateResourceSizing() {
         addNumericField(data, 'hiddenSize', 'vram-hidden-size');
         addNumericField(data, 'numLayers', 'vram-num-layers');
         data.architectureType = document.getElementById('vram-architecture-type').value;
+        const attentionMode = document.getElementById('vram-attention-mode').value;
+        if (attentionMode) {
+            data.attentionMode = attentionMode;
+        }
         addNumericField(data, 'numAttentionHeads', 'vram-num-attention-heads');
         addNumericField(data, 'numKeyValueHeads', 'vram-num-kv-heads');
     }
