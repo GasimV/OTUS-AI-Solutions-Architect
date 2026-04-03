@@ -276,6 +276,259 @@ Every invocation receives an **event object** containing the trigger data:
 
 Traditional FaaS (Lambda-style) has strict constraints. Newer platforms like **Cloud Run**, **Fargate**, and **Knative** blur the line — they run **arbitrary containers** with serverless properties (scale to zero, pay-per-use, no server management).
 
+---
+
+### Quick-Start Examples
+
+#### AWS Lambda (Python)
+
+**1. Write the function** — `lambda_function.py`:
+
+```python
+import json
+
+def lambda_handler(event, context):
+    """Simple HTTP handler that echoes back the request body."""
+    body = json.loads(event.get("body", "{}"))
+    name = body.get("name", "World")
+    return {
+        "statusCode": 200,
+        "body": json.dumps({"message": f"Hello, {name}!"})
+    }
+```
+
+**2. Package and deploy** (AWS CLI):
+
+```bash
+# Zip the function
+zip function.zip lambda_function.py
+
+# Create the Lambda function
+aws lambda create-function \
+  --function-name hello-serverless \
+  --runtime python3.12 \
+  --role arn:aws:iam::123456789012:role/lambda-exec-role \
+  --handler lambda_function.lambda_handler \
+  --zip-file fileb://function.zip
+
+# Invoke it directly (for testing)
+aws lambda invoke \
+  --function-name hello-serverless \
+  --payload '{"body": "{\"name\": \"Alice\"}"}' \
+  response.json
+```
+
+**3. Expose via API Gateway** — attach an HTTP API trigger in the AWS console or via CLI, mapping `POST /hello` → `hello-serverless` Lambda.
+
+**Key takeaway:** You write only the handler. AWS manages the runtime, scaling, OS, and networking.
+
+---
+
+#### OpenFaaS (Kubernetes, any language)
+
+OpenFaaS is **self-hosted** on any Kubernetes cluster — no cloud vendor required. Functions are packaged as **Docker containers**.
+
+**1. Install OpenFaaS on a K8s cluster:**
+
+```bash
+# Install faas-cli (the OpenFaaS CLI)
+curl -sL https://cli.openfaas.com | sudo sh
+
+# Deploy OpenFaaS into the cluster using arkade (or Helm)
+arkade install openfaas
+
+# Port-forward the gateway to localhost
+kubectl port-forward svc/gateway -n openfaas 8080:8080
+
+# Log in
+PASSWORD=$(kubectl get secret -n openfaas basic-auth -o jsonpath="{.data.basic-auth-password}" | base64 --decode)
+echo $PASSWORD | faas-cli login --username admin --password-stdin
+```
+
+**2. Create a function from a template:**
+
+```bash
+# Scaffold a new Python function
+faas-cli new hello-openfaas --lang python3
+
+# This creates:
+# hello-openfaas/
+#   handler.py        ← your function code
+#   requirements.txt  ← Python dependencies
+# hello-openfaas.yml  ← deployment config
+```
+
+**3. Write the handler** — `hello-openfaas/handler.py`:
+
+```python
+import json
+
+def handle(req):
+    """Receives raw request body, returns response string."""
+    body = json.loads(req) if req else {}
+    name = body.get("name", "World")
+    return json.dumps({"message": f"Hello, {name}!"})
+```
+
+**4. Build, push, and deploy:**
+
+```bash
+# Build the container image, push to registry, deploy to cluster
+faas-cli up -f hello-openfaas.yml
+
+# Invoke the function
+curl http://127.0.0.1:8080/function/hello-openfaas \
+  -d '{"name": "Alice"}'
+# → {"message": "Hello, Alice!"}
+```
+
+**5. Auto-scaling** — OpenFaaS scales based on requests per second by default (configurable):
+
+```yaml
+# In hello-openfaas.yml
+functions:
+  hello-openfaas:
+    labels:
+      com.openfaas.scale.min: "1"    # minimum replicas
+      com.openfaas.scale.max: "10"   # maximum replicas
+      com.openfaas.scale.zero: "true" # scale to zero when idle
+```
+
+**Key takeaway:** OpenFaaS gives you serverless **on your own infrastructure** — vendor-neutral, runs anywhere Kubernetes runs.
+
+---
+
+#### Knative (Kubernetes-native serverless)
+
+Knative provides **building blocks** for serverless on Kubernetes. Unlike OpenFaaS (which is a complete FaaS platform), Knative gives you two components:
+
+- **Knative Serving** — deploy and auto-scale containers (including scale to zero)
+- **Knative Eventing** — connect event sources to services (pub/sub, channels, brokers)
+
+**1. Install Knative on a K8s cluster:**
+
+```bash
+# Install Knative Serving (CRDs + core)
+kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.13.0/serving-crds.yaml
+kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.13.0/serving-core.yaml
+
+# Install a networking layer (e.g., Kourier)
+kubectl apply -f https://github.com/knative/net-kourier/releases/download/knative-v1.13.0/kourier.yaml
+
+# Install Knative CLI (optional, but convenient)
+brew install knative/client/kn
+```
+
+**2. Write a simple web server** (any language — Knative runs containers, not functions):
+
+```python
+# app.py — a regular Flask app
+from flask import Flask, request, jsonify
+
+app = Flask(__name__)
+
+@app.route("/", methods=["POST"])
+def hello():
+    body = request.get_json(silent=True) or {}
+    name = body.get("name", "World")
+    return jsonify({"message": f"Hello, {name}!"})
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8080)
+```
+
+**3. Containerize it** — `Dockerfile`:
+
+```dockerfile
+FROM python:3.12-slim
+WORKDIR /app
+COPY app.py .
+RUN pip install flask
+CMD ["python", "app.py"]
+```
+
+```bash
+# Build and push
+docker build -t docker.io/youruser/hello-knative:latest .
+docker push docker.io/youruser/hello-knative:latest
+```
+
+**4. Deploy as a Knative Service** — `service.yaml`:
+
+```yaml
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: hello-knative
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/min-scale: "0"   # scale to zero
+        autoscaling.knative.dev/max-scale: "10"
+    spec:
+      containers:
+        - image: docker.io/youruser/hello-knative:latest
+          ports:
+            - containerPort: 8080
+```
+
+```bash
+kubectl apply -f service.yaml
+
+# Or using the Knative CLI:
+kn service create hello-knative \
+  --image docker.io/youruser/hello-knative:latest \
+  --port 8080
+
+# Get the auto-generated URL
+kn service describe hello-knative -o url
+# → http://hello-knative.default.example.com
+
+# Invoke it
+curl -X POST http://hello-knative.default.example.com \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Alice"}'
+# → {"message": "Hello, Alice!"}
+```
+
+**5. Knative Eventing** — wire an event source to the service:
+
+```yaml
+apiVersion: sources.knative.dev/v1
+kind: PingSource
+metadata:
+  name: every-minute
+spec:
+  schedule: "*/1 * * * *"
+  contentType: "application/json"
+  data: '{"name": "Scheduled User"}'
+  sink:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: hello-knative
+```
+
+This fires a JSON event to `hello-knative` every minute — demonstrating how Knative Eventing decouples **event sources** from **services**.
+
+**Key takeaway:** Knative turns any container into a serverless workload on Kubernetes — no function format required, no vendor lock-in. It is the foundation under Google Cloud Run.
+
+---
+
+### Platform Comparison at a Glance
+
+| Aspect | AWS Lambda | OpenFaaS | Knative |
+|--------|-----------|----------|---------|
+| **Hosting** | Fully managed (AWS) | Self-hosted (any K8s) | Self-hosted (any K8s) |
+| **Unit of deployment** | Function (handler) | Function (Docker container) | Container (any web server) |
+| **Scale to zero** | Yes (default) | Yes (opt-in) | Yes (default) |
+| **Language lock-in** | Runtime-specific | None (container) | None (container) |
+| **Max timeout** | 15 min | Configurable (unlimited) | Configurable (unlimited) |
+| **Event system** | AWS triggers (S3, SQS, etc.) | HTTP + connectors | Knative Eventing (pluggable) |
+| **Vendor lock-in** | High (AWS-specific) | None | None |
+| **Setup complexity** | Low (managed) | Medium (need K8s cluster) | Medium-High (need K8s + CRDs) |
+
 [Back to Contents](#contents)
 
 ---
