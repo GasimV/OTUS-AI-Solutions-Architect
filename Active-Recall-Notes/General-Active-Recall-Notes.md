@@ -63,6 +63,7 @@
     - [ClusterIP, NodePort & LoadBalancer in K8s](#clusterip-nodeport-loadbalancer-in-k8s)
     - [Kubernetes UI/Dashboard & Core YAML Files](#kubernetes-ui-dashboard-core-yaml-files)
   - [Docker Swarm](#docker-swarm)
+  - [Containers vs Virtual Machines Security Basics](#containers-vs-virtual-machines-security-basics)
   - [Serverless and FaaS](#serverless-and-faas)
   - [Virtual Private Cloud (VPC)](#virtual-private-cloud-vpc)
   - [Amazon Route 53](#amazon-route-53)
@@ -96,6 +97,7 @@
   - [Role-Based Access Control (RBAC)](#role-based-access-control-rbac)
   - [Security Information and Event Management (SIEM)](#security-information-and-event-management-siem)
   - [General Data Protection Regulation (GDPR)](#general-data-protection-regulation-gdpr)
+  - [Privacy-Enhancing Technologies: SMPC, FHE & TEE](#privacy-enhancing-technologies-smpc-fhe-tee)
   - [Self-Assessment Questionnaires (SAQs)](#self-assessment-questionnaires-saqs)
   - [TLS 1.2+ (Data in Transit) & AES-256 (Data at Rest)](#tls-1-2-data-in-transit-aes-256-data-at-rest)
   - [Identity Provider (IdP)](#identity-provider-idp)
@@ -4195,6 +4197,158 @@ Swarm is often chosen when you want cluster orchestration without the complexity
 
 ---
 
+<a id="containers-vs-virtual-machines-security-basics"></a>
+
+### Containers vs Virtual Machines Security Basics
+
+**Containers and Virtual Machines (VMs)** both isolate workloads, but they do it in different ways. That difference matters for security.
+
+The concern is valid:
+
+```text
+A compromised container can sometimes lead to host or cross-container compromise, but this usually depends on weak configuration, excessive privileges, or a vulnerability.
+```
+
+#### Docker Containers: OS-Level Isolation
+
+**Docker containers** are lightweight because they share the host operating system kernel.
+
+**How container isolation works**
+
+- **Namespaces** separate processes, networking, filesystems, users, and other views of the system.
+- **cgroups** limit CPU, memory, and other resource usage.
+- Containers start quickly and use fewer resources than VMs.
+
+**Security implication**
+
+- Containers are fast and efficient.
+- But the isolation boundary is weaker than a VM boundary because containers still rely on the shared host kernel.
+
+#### Virtual Machines: Hardware-Level Isolation
+
+**Virtual Machines** run a full guest operating system with its own kernel.
+
+**How VM isolation works**
+
+- A **hypervisor** separates VMs from each other and from the host.
+- Each VM has its own OS and kernel.
+- A compromised VM usually has a harder time reaching other VMs or the host.
+
+**Security implication**
+
+- VM isolation is stronger by design.
+- VM escape attacks exist, but they are usually rarer and harder than common container misconfiguration attacks.
+
+#### Can One Compromised Container Affect Others?
+
+**Short answer**:
+
+```text
+Yes, it is possible, but it is not automatic.
+```
+
+It becomes more likely when:
+
+- the container runs with high privileges
+- the host kernel has a vulnerability
+- the container is misconfigured
+- internal container networking is too open
+- secrets, sockets, or host paths are exposed
+
+#### How Container Attacks Can Happen
+
+**1. Container Breakout**
+
+- This is the most critical container risk.
+- If an attacker exploits a kernel bug or a dangerous container configuration, they may escape the container.
+- After reaching the host, they may be able to read host files, inspect other containers, or pivot into other applications.
+
+**High-risk examples**
+
+- running containers with `--privileged`
+- mounting sensitive host paths
+- exposing `/var/run/docker.sock`
+
+**2. Shared Kernel Risk**
+
+- All containers on the same host use the same kernel.
+- If the kernel is compromised, the host and other containers may also be at risk.
+
+**3. Misconfiguration**
+
+Misconfiguration is one of the most common real-world causes of container compromise.
+
+Common mistakes include:
+
+- running as `root` inside the container
+- weak filesystem permissions
+- mounting Docker socket into a container
+- giving containers unnecessary Linux capabilities
+- using overly broad volume mounts
+
+**4. Lateral Movement Between Containers**
+
+- If an attacker compromises **App A**, they may scan the internal Docker or Kubernetes network.
+- If network policies are weak, they can try to attack **App B**.
+- This is common in real incidents because internal networks are often more trusted than they should be.
+
+#### Containers vs VMs: Security Comparison
+
+| **Risk / Feature** | **Containers** | **Virtual Machines** |
+| --- | --- | --- |
+| **Isolation strength** | Weaker | Stronger |
+| **Kernel sharing** | Yes, containers share host kernel | No, each VM has its own kernel |
+| **Breakout difficulty** | Lower if misconfigured or vulnerable | Higher |
+| **Lateral movement** | Easier if container networking is flat | Harder by default |
+| **Performance** | High | Lower than containers |
+| **Startup speed** | Fast | Slower |
+| **Resource usage** | Lightweight | Heavier |
+
+#### How to Reduce Container Risk
+
+**Essential protections**
+
+- Avoid `--privileged`.
+- Run containers as non-root users.
+- Do not expose `/var/run/docker.sock`.
+- Patch the host kernel regularly.
+- Use minimal base images.
+- Apply network segmentation between containers.
+- Limit Linux capabilities.
+- Use read-only filesystems where possible.
+- Scan images for vulnerabilities.
+
+**Linux security controls**
+
+- **seccomp**: restricts system calls.
+- **AppArmor**: limits what processes can access.
+- **SELinux**: enforces stronger mandatory access control policies.
+
+**Advanced hardening**
+
+- **gVisor**: adds a stronger sandbox layer around containers.
+- **Kata Containers**: runs containers with VM-like isolation.
+- **Falco**: detects suspicious runtime behavior.
+- **eBPF monitoring**: observes low-level runtime and network activity.
+
+#### Final Takeaway
+
+- Containers are not automatically insecure.
+- They are widely used safely in production.
+- But they depend heavily on correct configuration and kernel security.
+- Their isolation is weaker than VMs by design because they share the host kernel.
+
+```text
+VMs isolate with a hypervisor and separate kernels.
+Containers isolate with OS features on a shared kernel.
+```
+
+So yes, a compromised container can lead to host or cross-container compromise, but mainly when protections are weak, privileges are excessive, or vulnerabilities exist.
+
+[Back to Contents](#contents)
+
+---
+
 <a id="serverless-and-faas"></a>
 
 ### Serverless and FaaS
@@ -5655,6 +5809,116 @@ Modern SIEM platforms are aggregating and normalizing data not only from various
 The European Parliament and Council of the European Union adopted the GDPR on 14 April 2016, to become effective on 25 May 2018. As an EU regulation (instead of a directive), the GDPR has direct legal effect and does not require transposition into national law. However, it also provides flexibility for individual member states to modify (derogate from) some of its provisions.
 
 As an example of the Brussels effect, the regulation became a model for many other laws around the world, including in Brazil, Japan, Singapore, South Africa, South Korea, Sri Lanka, and Thailand. After leaving the European Union the United Kingdom enacted its "UK GDPR", identical to the GDPR. The California Consumer Privacy Act (CCPA), adopted on 28 June 2018, has many similarities with the GDPR.
+
+[Back to Contents](#contents)
+
+---
+
+<a id="privacy-enhancing-technologies-smpc-fhe-tee"></a>
+
+### Privacy-Enhancing Technologies: SMPC, FHE & TEE
+
+**SMPC, FHE, and TEE** are three important **Privacy-Enhancing Technologies (PETs)** used when sensitive data must be processed without fully exposing the original information.
+
+They all support the broader idea of **confidential computing**, but they protect data in different ways:
+
+- **SMPC**: split trust across several parties.
+- **FHE**: compute directly on encrypted data.
+- **TEE**: process data inside a protected hardware area.
+
+#### SMPC (Secure Multi-Party Computation)
+
+**How it works**
+
+- The original data is split into multiple pieces called **shares**.
+- Different parties hold different shares.
+- No single party can see the full original data.
+- The parties cooperate to compute a final result.
+
+**Pros**
+
+- **Strong cryptographic security**
+- **No single point of failure**
+
+**Cons**
+
+- Requires communication between parties.
+- Complex computations can become slow because of network and coordination overhead.
+
+**Best for**
+
+- **Collaborative data analysis**
+- **Banks detecting fraud together without sharing raw customer data**
+- **Secure voting**
+
+#### FHE (Fully Homomorphic Encryption)
+
+**How it works**
+
+- Data stays encrypted while computations are performed on it.
+- The system produces an encrypted result.
+- Only the data owner decrypts the final result.
+
+**Pros**
+
+- Data does not need to be decrypted during processing.
+- It can theoretically run on normal hardware.
+
+**Cons**
+
+- Currently very slow.
+- Computationally expensive for real-world complex workloads.
+
+**Best for**
+
+- **Privacy-preserving smart contracts**
+- **Cloud-based AI processing where raw data should not be exposed**
+
+#### TEE (Trusted Execution Environment)
+
+**How it works**
+
+- A secure isolated area, called an **enclave**, runs inside a hardware chip.
+- Data is processed in plaintext inside the enclave.
+- The rest of the system cannot see what is happening inside that protected area.
+- Examples include **Intel SGX** and **AMD SEV**.
+
+**Pros**
+
+- Near-native performance.
+- Much faster than most purely cryptographic approaches.
+
+**Cons**
+
+- Requires trust in the hardware vendor.
+- Can be exposed to side-channel attack risks.
+
+**Best for**
+
+- **High-performance confidential computing**
+- **Protecting private keys in Web3**
+
+#### Comparison Summary
+
+| **Feature** | **SMPC** | **FHE** | **TEE** |
+| --- | --- | --- | --- |
+| **Main driver** | Distributed trust | Advanced math | Specialized hardware |
+| **Performance** | Medium, network-heavy | Slow, CPU-heavy | Fast, near-native |
+| **Trust model** | Trust in the majority of parties | Purely cryptographic | Trust in the chip maker |
+| **Maturity** | Used in production | Emerging / research-heavy | Widely deployed |
+| **Best fit** | Multi-party collaboration | Encrypted cloud computation | Fast confidential workloads |
+
+#### Combining These Technologies
+
+- These technologies are often combined to create multi-layered security.
+- Example: running SMPC nodes inside a TEE can combine distributed trust with hardware-backed execution.
+- This can improve both integrity and performance while still reducing raw-data exposure.
+
+**One-Line Summary**
+
+```text
+SMPC protects data by splitting it, FHE protects data by keeping it encrypted during computation, and TEE protects data by processing it inside trusted hardware.
+```
 
 [Back to Contents](#contents)
 
