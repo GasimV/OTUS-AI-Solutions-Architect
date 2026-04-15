@@ -36,6 +36,8 @@
   - [TCP/UDP Ports](#tcp-udp-ports)
     - [How many ports are there?](#how-many-ports-are-there)
     - [TCP vs. UDP Ports](#tcp-vs-udp-ports)
+  - [Round-Trip Time (RTT)](#round-trip-time-rtt)
+  - [Unix Domain Socket (UDS)](#unix-domain-socket-uds)
   - [Server-Side Rendering (SSR)](#server-side-rendering-ssr)
   - [gRPC](#grpc)
   - [gRPC vs. WebSocket vs. HTTP vs. Server-Sent Events (SSE)](#grpc-vs-websocket-vs-http-vs-server-sent-events-sse)
@@ -63,9 +65,12 @@
   - [Docker Swarm](#docker-swarm)
   - [Serverless and FaaS](#serverless-and-faas)
   - [Virtual Private Cloud (VPC)](#virtual-private-cloud-vpc)
+  - [Amazon Route 53](#amazon-route-53)
   - [Virtual Private Server (VPS)](#virtual-private-server-vps)
+  - [Fibre Channel (FC) Storage Area Network (SAN)](#fibre-channel-fc-storage-area-network-san)
   - [Sidecar Pattern](#sidecar-pattern)
   - [Content Delivery Network (CDN)](#content-delivery-network-cdn)
+    - [Point of Presence (PoP)](#point-of-presence-pop)
     - [CDN Edge Server](#cdn-edge-server)
   - [Host 0.0.0.0](#host-0-0-0-0)
   - [Makefile](#makefile)
@@ -2083,6 +2088,202 @@ You can get started by following the official installation guides for Docker, Ku
 
 ---
 
+<a id="round-trip-time-rtt"></a>
+
+### Round-Trip Time (RTT)
+
+**Round-Trip Time (RTT)**, also called **round-trip delay (RTD)**, is the time it takes for a packet or signal to go from sender to receiver and for the response or acknowledgement to come back.
+
+In simple terms:
+
+```text
+RTT = time to go there + time to come back
+```
+
+**RTT vs. One-Way Latency**
+
+- **One-way latency**: how long traffic takes to travel in one direction.
+- **RTT**: the full there-and-back time.
+- A rough estimate is:
+
+```text
+one-way delay ≈ RTT / 2
+```
+
+This is only an approximation because the path there and the path back may not be identical.
+
+**RTT and Ping**
+
+- RTT is often discussed as **ping time**.
+- The `ping` command measures response time using ICMP packets.
+- Ping is useful, but it may not perfectly match the delay experienced by real application traffic.
+- Different protocols can have different packet sizes, priorities, routing behavior, and processing overhead.
+
+**What Contributes to RTT**
+
+| **Delay source** | **Simple meaning** |
+| --- | --- |
+| **Propagation delay** | Time for the signal to physically travel across distance. |
+| **Transmission delay** | Time needed to put all bits of a packet onto the link. Larger packets take longer. |
+| **Queueing delay** | Time spent waiting in network device queues during congestion. |
+| **Processing delay** | Time routers, switches, servers, or endpoints spend handling the packet. |
+
+**Bandwidth vs. RTT**
+
+- Higher bandwidth can reduce **transmission delay**, because data can be pushed onto the link faster.
+- Higher bandwidth does **not** remove propagation delay.
+- If two endpoints are far apart, the speed-of-light/distance part of the delay still remains.
+
+**Long Fat Networks**
+
+**Long fat networks** are networks with:
+
+- **high bandwidth**
+- **high RTT**
+
+This means a lot of data can be “in flight” at the same time.
+
+```text
+high bandwidth × high RTT = large bandwidth-delay product
+```
+
+These networks need protocol support that can keep enough data moving without waiting too much for acknowledgements. One example is the **TCP window scale option**, which allows TCP to use larger windows.
+
+**RTT in TCP**
+
+- TCP estimates RTT continuously so it can decide how long to wait before retransmitting lost data.
+- Older TCP logic used a weighted average of old RTT and new RTT samples.
+- A weighting factor close to `1` makes the estimate stable and less sensitive to short spikes.
+- A weighting factor close to `0` makes the estimate react quickly to changes.
+- Later algorithms, such as Jacobson/Karels, improved this by also considering delay variation.
+
+**Wi-Fi Positioning**
+
+- Accurate RTT measurement over Wi-Fi can also be used for positioning.
+- IEEE `802.11mc` uses round-trip timing measurements to estimate distance between Wi-Fi devices.
+
+**One-Line Summary**
+
+```text
+RTT tells you how long a network conversation takes to make a full round trip, and it is a key metric for latency, TCP behavior, and user-perceived responsiveness.
+```
+
+[Back to Contents](#contents)
+
+---
+
+<a id="unix-domain-socket-uds"></a>
+
+### Unix Domain Socket (UDS)
+
+**A Unix domain socket (UDS)**, also called a **local socket** or **inter-process communication (IPC) socket**, is a communication endpoint used for data exchange between processes running on the same Unix or Unix-like operating system.
+
+**Socket Domain**
+
+- The term **Unix domain socket** refers to the `domain` argument value `AF_UNIX` passed to the system call that creates the socket.
+- The same communication domain can also be selected with `AF_LOCAL`.\[1\]
+
+**Valid UDS Socket Types**
+
+| **Socket type** | **Comparable network concept** | **Meaning** |
+| --- | --- | --- |
+| `SOCK_STREAM` | TCP | A stream-oriented socket. |
+| `SOCK_DGRAM` | UDP | A datagram-oriented socket that preserves message boundaries. On most Unix implementations, Unix domain datagram sockets are reliable and do not reorder datagrams. |
+| `SOCK_SEQPACKET` | SCTP | A connection-oriented sequenced-packet socket that preserves message boundaries and delivers messages in the order sent. |
+
+**POSIX / Operating System Behavior**
+
+- The **UDS facility** is a standard component of a POSIX operating system.
+- The API for a UDS is similar to that of an Internet socket.
+- Instead of using an underlying network protocol, communication takes place entirely within the operating system kernel.
+- A UDS may use the file system as its address namespace.
+- Some operating systems, such as Linux, provide additional namespaces.
+- Processes refer to a UDS through a file system inode, allowing two processes to communicate by opening the same socket.
+
+**File Descriptor Passing**
+
+- In addition to sending data, processes can pass file descriptors over a UDS connection by using the `sendmsg()` and `recvmsg()` system calls.
+- This allows one process to grant another process access to a file descriptor that it would not otherwise be able to use.\[2\]\[3\]
+- This can be used to implement a rudimentary form of capability-based security.
+
+#### Understanding Unix Sockets
+
+In the intricate web of digital communication, few tools are as fundamental yet versatile as Unix sockets in Linux. These Unix sockets act as unsung heroes, enabling data exchange between programs, processes, and even remote machines.
+
+Whether you're a seasoned programmer architecting complex systems or a curious tinkerer delving into the Linux underbelly, understanding Unix sockets is a valuable skill.
+
+**What are Unix Sockets?**
+
+- Imagine a two-way tunnel, not of dirt but of data, built within the digital terrain of your Linux system.
+- That's essentially what a Unix socket represents.
+- It's a software endpoint facilitating bidirectional communication between processes, regardless of their location within the system or even beyond its borders.
+
+**Unix sockets offer two distinct flavors**
+
+| **Socket flavor** | **Role** | **Mental model** |
+| --- | --- | --- |
+| **Network Sockets** | Enable communication across networks using protocols like TCP/IP. | Long-distance runners sending data packets across the internet, each bearing the socket's address as its destination. |
+| **Domain Sockets** | Facilitate communication between processes within the same system. | Private pipes connecting programs within the Linux kingdom. |
+
+**Building Blocks of Socket Communication**
+
+Each Unix socket comprises several crucial elements:
+
+- **Domain**: Specifies the communication protocol, like `AF_INET` for TCP/IP or `AF_UNIX` for domain sockets.
+- **Type**: Defines the communication style, like `SOCK_STREAM` for reliable byte streams or `SOCK_DGRAM` for unreliable datagrams.
+- **File Descriptor**: The unique identifier assigned to the socket, used for accessing and manipulating it.
+- **Address**: Identifies the socket, either as an IP address and port for network sockets or a path on the filesystem for domain sockets.
+
+**Socket Types and Their Roles**
+
+| **Socket type** | **Role** | **Analogy** |
+| --- | --- | --- |
+| `SOCK_STREAM` | Reliable, sequential data transmission. | Flowing rivers, where each byte arrives in the correct order, much like the pages of a book. |
+| `SOCK_DGRAM` | Individual packets carry the data. Faster, but without guaranteed delivery and order. | Mail delivery, like postcards mailed independently. |
+
+**Connection and Exchange of Data Using Sockets**
+
+Establishing a connection involves a four-step dance:
+
+- **Socket Creation**: Use the `socket()` system call to define the socket's domain, type, and protocol.
+- **Binding**: Assign an address to the socket using the `bind()` call. Think of hanging a sign with your address on the digital street.
+- **Connecting (Server) or Listening (Client)**: Servers use `listen()` to wait for incoming connections, while clients use `connect()` to initiate communication with a designated server address.
+- **Data Transfer**: Once connected, use `send()` and `recv()` to send and receive data through the established socket channel.
+
+**Socket Programming Tools**
+
+Several libraries and frameworks assist in harnessing the power of sockets:
+
+- **Berkeley Sockets Interface (BSI)**: The foundational API for socket programming in C, providing low-level functions for socket creation, connection management, and data transfer.
+- **GNU glibc Networking API**: Builds upon BSI, offering a higher-level interface with additional features like DNS resolution and network address manipulation.
+- **Python Sockets Module**: Simplifies socket programming with a dedicated module, allowing concise and intuitive code for network and inter-process communication.
+
+**Applications of Unix Sockets**
+
+The versatility of Unix sockets makes them ubiquitous across various domains:
+
+- **Web Servers**: Web servers like Apache utilize sockets to communicate with browsers, serving web pages and handling client requests.
+- **Networking Tools**: Tools like `ping` and `netcat` rely on sockets to send and receive network packets, troubleshooting connectivity and performing network diagnostics.
+- **Inter-Process Communication (IPC)**: Programs within the same system leverage domain sockets to exchange data efficiently, eliminating the need for external network connections.
+- **Containerized Applications**: Containers rely on sockets for internal communication between containerized processes and for interacting with the host system.
+
+**Security Concerns of Using Sockets**
+
+- With great power comes great responsibility.
+- Securing your socket communication is paramount.
+- **Authentication and Authorization**: Implement mechanisms to verify the identity of communicating parties.
+
+**Conclusion**
+
+- Unix sockets are like digital tunnels that let different programs talk to each other, whether they're on the same computer or far away.
+- They're useful for making web servers, networking tools, and containerized applications work smoothly.
+- Understanding them is like having a secret code to make different parts of your computer share information.
+- Whether you're a tech pro or just curious, Unix sockets are a cool tool to have in your digital toolbox.
+
+[Back to Contents](#contents)
+
+---
+
 <a id="server-side-rendering-ssr"></a>
 
 ### Server-Side Rendering (SSR)
@@ -4061,6 +4262,71 @@ Major providers include AWS, Google Cloud, and DigitalOcean, each offering simil
 
 ---
 
+<a id="amazon-route-53"></a>
+
+### Amazon Route 53
+
+**Amazon Route 53** is AWS’s managed DNS service. It helps translate human-readable domain names, such as `example.com`, into the technical addresses that browsers and services need to reach applications.
+
+The name **Route 53** likely refers to two ideas:
+
+- **Route**: routing users to the right destination.
+- **53**: DNS commonly uses TCP/UDP port `53`.
+
+**What Route 53 Is Used For**
+
+- **DNS hosting**: Manage DNS records for a domain.
+- **Domain registration**: Buy and manage domain names through AWS.
+- **Traffic routing**: Send users to AWS services or external/non-AWS infrastructure.
+- **Health checks**: Monitor whether an application endpoint is healthy.
+- **High availability**: Use AWS’s globally distributed DNS infrastructure.
+- **IPv6 support**: Route 53 supports end-to-end DNS resolution over IPv6.
+
+**Hosted Zones**
+
+- A **hosted zone** is a container for DNS records for a domain.
+- When you create a hosted zone, Route 53 gives you a set of authoritative name servers.
+- You add, delete, and update DNS records inside that hosted zone.
+- These records decide where traffic for names like `api.example.com` or `www.example.com` should go.
+
+**Common DNS Records in Route 53**
+
+| **Record type** | **Simple meaning** |
+| --- | --- |
+| `A` | Points a domain name to an IPv4 address. |
+| `AAAA` | Points a domain name to an IPv6 address. |
+| `CNAME` | Points one DNS name to another DNS name. |
+| `MX` | Defines mail servers for a domain. |
+| `TXT` | Stores text values, often used for verification and security records. |
+| `Alias` | AWS-specific virtual record that points to selected AWS resources. |
+
+**Alias Records**
+
+- Route 53 has an AWS-specific record type called an **Alias** record.
+- An Alias record behaves somewhat like a `CNAME`, because it can point one name to another DNS name.
+- Unlike a normal `CNAME`, Route 53 resolves the Alias on the server side and returns address records to the client.
+- This makes Alias records useful for AWS resources that expose DNS names instead of fixed IP addresses, such as:
+  - **Elastic Load Balancer**
+  - **CloudFront distribution**
+  - **some S3 website endpoints**
+- Alias records can also be used at the domain apex/root, such as `example.com`, where normal `CNAME` records are not allowed.
+
+**Programmatic Access**
+
+- Route 53 can be managed through AWS APIs, SDKs, CLI commands, and Infrastructure as Code tools.
+- This allows teams to automatically create or update DNS records when infrastructure changes.
+- Example: a deployment can create a new load balancer and then automatically point a DNS record to it.
+
+**One-Line Summary**
+
+```text
+Route 53 is AWS DNS: it maps domain names to AWS or non-AWS resources, supports health-aware routing, and lets DNS records be automated through AWS tooling.
+```
+
+[Back to Contents](#contents)
+
+---
+
 <a id="virtual-private-server-vps"></a>
 
 ### Virtual Private Server (VPS)
@@ -4100,6 +4366,142 @@ Major providers include AWS, Google Cloud, and DigitalOcean, each offering simil
 **When to Choose a VPS**
 
 - A VPS is recommended when your site outgrows shared hosting, requires specific software configurations, or handles sensitive data that needs high security.
+
+[Back to Contents](#contents)
+
+---
+
+<a id="fibre-channel-fc-storage-area-network-san"></a>
+
+### Fibre Channel (FC) Storage Area Network (SAN)
+
+**Fibre Channel (FC) Storage Area Network (SAN)** components interact to provide a dedicated, high-speed, and lossless network for block-level storage traffic, separating it from standard LAN traffic.
+
+The interaction involves a complex, automated process of login, address assignment, discovery, and path management, often implemented using redundant fabrics for high availability.
+
+**Core SAN Components**
+
+Components of a Storage Area Network (SAN) involve three basic components:
+
+- **Server**
+- **Network Infrastructure**
+- **Storage**
+
+The above elements are classified into the following elements:
+
+- **Node port**
+- **Cables**
+- **Interconnection Devices**
+- **Storage Array**
+- **SAN Management Software**
+
+#### FC SAN Physical Components and Connectivity
+
+| **Component** | **Function / Role** |
+| --- | --- |
+| **Nodes** | Hosts, servers, storage arrays, and tape libraries are referred to as nodes. They act as source/destination for data. |
+| **Host Bus Adapters (HBAs)** | Installed in servers and connected to the network via fiber optic cables. They offload storage traffic processing from the server CPU and appear as SCSI adapters to the OS. |
+| **Storage Controllers / Storage Ports** | Front-end ports on storage arrays that accept connections from switches and incoming traffic to storage disks. |
+| **FC Switches** | Act as the fabric, directing data traffic directly from one port to another. They also route traffic, perform zoning, and provide fabric services. |
+| **Cabling** | Optical fiber cables carry data via light, ensuring high-speed data transmission. |
+| **Management Software** | Configures, monitors, and provides visibility into the fabric. |
+
+**Node Ports**
+
+- In Fibre Channel, devices like **hosts**, **storage**, and **tape libraries** are referred to as nodes.
+- Nodes consist of ports for transmission between other nodes.
+- Ports operate in full-duplex data transmission mode with transmit (`Tx`) and receive (`Rx`) links.
+
+**Cables**
+
+- SAN implements optical fiber cabling.
+- Copper cables are used for short-distance connectivity.
+- Optical cables are used for long-distance connection establishment.
+
+**Optical Cable Types**
+
+| **Cable type** | **Description** | **Typical distance / note** |
+| --- | --- | --- |
+| **Multi-mode fiber (MMF)** | Carries multiple rays of light projected at different angles simultaneously onto the core of the cable. In MMF transmission, light beams tend to disperse and collide. This collision weakens the signal strength after it travels a certain distance, called modal dispersion. | Used for distances up to 500 meters because of signal degradation/attenuation due to modal dispersion. |
+| **Single-mode fiber (SMF)** | Carries a single beam of light through the core of the fiber. The small core reduces modal dispersion. | Used for distances up to 10 kilometers due to less attenuation. SMF is costlier than MMF. |
+
+**Connectors and Transceivers**
+
+- **Standard Connectors (SC)** and **Lucent Connectors (LC)** are commonly used fiber connectors.
+- Data transmission speeds can reach up to **1 Gbps** and **4 Gbps** respectively.
+- **Small Form-factor Pluggable (SFP)** is an optical transceiver used in optical communication with transmission speed up to **10 Gbps**.
+
+#### FC SAN Logical Interaction & Fabric Services
+
+The interaction is governed by the **Fibre Channel Protocol (FCP)**, which facilitates the transport of SCSI commands.
+
+| **Fabric service / step** | **What happens** |
+| --- | --- |
+| **Fabric Login (FLOGI)** | When an HBA (initiator) or storage port (target) is connected, it sends a FLOGI request to the switch. The switch assigns a 24-bit `FCID` (Fibre Channel ID) address to the port, similar to an IP address. |
+| **Fabric Name Service (FCNS)** | After login, the device registers its Worldwide Name (`WWN`) and `FCID` with the switch's Name Server, allowing other devices in the fabric to find it. |
+| **Port Login (PLOGI)** | Initiator nodes (servers) perform a port login to communicate with target nodes (storage). |
+| **Process Login (PRLI)** | The initiator exchanges upper-layer protocol parameters, such as SCSI, with the target. |
+
+#### Traffic Control & Security
+
+- **Zoning**: A security mechanism configured on switches to isolate traffic. Zoning defines which nodes, such as server HBAs, can communicate with other nodes, such as storage ports. This prevents unauthorized access between servers and limits communication to intended storage targets.
+- **LUN Masking**: A function of the storage array, not the switch. It restricts which Logical Unit Numbers (`LUNs`) a specific server HBA, based on its `WWN`, can see and access, enhancing security at the destination.
+
+#### Redundancy and Reliability
+
+- **Fabric A & B**: For critical applications, two physically separate SAN networks, Fabric A and Fabric B, are used. Each server has two HBAs, one connected to each fabric.
+- **Multipathing**: Software on the host server manages multiple paths. If a cable, HBA, or switch fails, traffic automatically reroutes to the alternative path, ensuring no downtime.
+- **Inter-Switch Links (ISLs)**: Link switches together, allowing them to form a single, larger fabric.
+
+#### Interconnection Devices
+
+The commonly used interconnection devices in SAN are:
+
+- **Hubs**
+- **Switches**
+- **Directors**
+
+| **Device** | **Role** |
+| --- | --- |
+| **Hubs** | Communication devices used in fiber cable implementations. They connect nodes in loop or star topology. |
+| **Switches** | More intelligent than hubs. They directly route data from one port to another. They are cheap and their performance is better than hubs. |
+| **Directors** | Larger than switches and used for data center implementations. Directors have high fault tolerance and higher port count than switches. |
+
+#### Storage Array
+
+**A disk array**, also called a **storage array**, is a data storage system used for block-based storage, file-based storage, or object storage.
+
+The term describes dedicated storage hardware that contains spinning hard disk drives (`HDDs`) or solid-state drives (`SSDs`).
+
+**The fundamental purpose of a SAN** is to provide host access to storage resources.
+
+SAN storage implementations provide:
+
+- **high availability and redundancy**
+- **improved performance**
+- **business continuity**
+- **multiple host connectivity**
+
+#### SAN Management Software
+
+**SAN Management Software** manages the interface between the host, interconnection devices, and storage arrays.
+
+It includes key management functions such as:
+
+- **mapping of storage devices**
+- **mapping of switches**
+- **logical partitioning of SAN, called zoning**
+- **management of storage devices**
+- **management of interconnection devices**
+
+#### Summary of Component Roles
+
+| **Component** | **Function** |
+| --- | --- |
+| **HBA** | Connects host to fabric and offloads SCSI commands. |
+| **Switch** | Routes traffic, performs zoning, and provides fabric services. |
+| **Storage Port** | Accepts incoming traffic to storage disks. |
+| **Management Software** | Configures, monitors, and provides visibility into the fabric. |
 
 [Back to Contents](#contents)
 
@@ -4177,6 +4579,64 @@ These Internet exchange points (IXPs) are the primary locations where different 
 ![Embedded note image 1](./General-Active-Recall-Notes.assets/image-069.png)
 
 Beyond placement of servers in IXPs, a CDN makes a few optimizations on standard client/server data transfers. CDNs place Data Centers at strategic locations across the globe, enhance security, and are designed to survive various types of failures and Internet congestion.
+
+<a id="point-of-presence-pop"></a>
+
+#### Point of Presence (PoP)
+
+**A Point of Presence (PoP)** is a physical network location where users, providers, or networks connect to each other.
+
+In simpler words:
+
+```text
+PoP = a local network access point where traffic enters or leaves a provider's network.
+```
+
+**Common Example**
+
+- An ISP may have a local PoP in a city or region.
+- Customers connect to that PoP to reach the ISP network.
+- From there, the ISP routes traffic onward to the internet or to other networks.
+
+**What a PoP Usually Contains**
+
+- **Servers**
+- **Routers**
+- **Network switches**
+- **Multiplexers**
+- **Network interface equipment**
+- **Optical Line Terminals (OLTs)** for fibre internet
+
+**Where PoPs Are Usually Located**
+
+- **Data centers**
+- **Internet Exchange Points (IXPs)**
+- **Colocation centers**
+
+**Why Providers Use Multiple PoPs**
+
+- **Lower latency**: users connect to a nearby network location.
+- **Better reliability**: traffic can use another PoP if one location has problems.
+- **More capacity**: traffic is spread across many access points.
+- **Regional coverage**: providers can serve users in many cities or countries.
+
+**PoP vs. Edge Server**
+
+| **Concept** | **Simple meaning** |
+| --- | --- |
+| **PoP** | The physical network location or access point. |
+| **Edge server** | A server inside or near that PoP that serves cached content or handles traffic close to users. |
+
+**Historical Telecom Meaning**
+
+- In U.S. telecom history, the term became important during the breakup of the Bell telephone system.
+- A PoP was a location where a long-distance carrier could connect its services into a local telephone network area.
+
+**One-Line Summary**
+
+```text
+A PoP is the place where networks meet, users connect, and providers place equipment close to customers to improve access, latency, and reliability.
+```
 
 <a id="cdn-edge-server"></a>
 
