@@ -40,6 +40,7 @@
   - [Unix Domain Socket (UDS)](#unix-domain-socket-uds)
   - [Server-Side Rendering (SSR)](#server-side-rendering-ssr)
   - [gRPC](#grpc)
+  - [SOAP – Simple Object Access Protocol](#soap-simple-object-access-protocol)
   - [gRPC vs. WebSocket vs. HTTP vs. Server-Sent Events (SSE)](#grpc-vs-websocket-vs-http-vs-server-sent-events-sse)
   - [Webhooks](#webhooks)
   - [OpenAPI Schemas: API data models / DTO (Data Transfer Objects)](#openapi-schemas-api-data-models-dto-data-transfer-objects)
@@ -2323,6 +2324,52 @@ Server-Side Rendering (SSR) in web applications dynamically generates full HTML 
 - **Modern Transport**: Leverages HTTP/2 for features like multiplexing requests over a single connection and bidirectional streaming.
 - **Use Cases**: Highly effective for microservices, mobile applications, and real-time communication systems where low latency is critical.
 - **gRPC vs REST**: While REST is standard for public APIs using JSON, gRPC is often preferred for internal microservices due to its superior performance, strict contract definitions, and streaming capabilities.
+
+[Back to Contents](#contents)
+
+---
+
+<a id="soap-simple-object-access-protocol"></a>
+
+### SOAP – Simple Object Access Protocol
+
+**SOAP (Simple Object Access Protocol)** is an older, formal web service protocol used for exchanging structured messages between systems.
+
+**Core Idea**
+
+- SOAP usually sends messages as **XML**.
+- It is commonly transported over **HTTP/HTTPS**.
+- It defines a strict message format, unlike REST, which is more of an architectural style.
+
+**What SOAP Is Known For**
+
+- **Strong contracts**: commonly described with `WSDL` files.
+- **XML-based messages**: request and response bodies are structured as XML.
+- **Enterprise features**: supports standards for security, transactions, and reliability.
+- **Strictness**: more rigid than REST, but useful when formal contracts are required.
+
+**Typical Use Cases**
+
+- **Banking systems**
+- **Government integrations**
+- **Legacy enterprise systems**
+- **B2B integrations where strict contracts matter**
+
+**SOAP vs REST**
+
+| **SOAP** | **REST** |
+| --- | --- |
+| Protocol | Architectural style |
+| Usually XML | Usually JSON |
+| Contract-heavy | Resource-oriented |
+| More strict | More lightweight |
+| Common in enterprise legacy systems | Common in modern public APIs |
+
+**One-Line Summary**
+
+```text
+SOAP is a strict XML-based web service protocol often used in enterprise systems where formal contracts and strong standards matter.
+```
 
 [Back to Contents](#contents)
 
