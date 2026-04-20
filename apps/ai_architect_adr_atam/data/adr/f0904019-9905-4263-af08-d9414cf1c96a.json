@@ -1,16 +1,22 @@
 {
   "alternatives": [
-    "Alternative A — one-line description and why it was rejected.",
-    "Alternative B — one-line description and why it was rejected."
+    "**Serverless AI APIs (e.g., OpenAI, AWS Bedrock):**",
+    "*Pros:* Zero management, high availability.",
+    "*Cons:* Limited control over model versions, data privacy concerns, and unpredictable long-term costs.",
+    "**Bare Metal / Virtual Machines:**",
+    "*Pros:* Maximum raw performance and minimal networking overhead.",
+    "*Cons:* Manual scaling, difficult high-availability implementation, and high operational toil."
   ],
   "assumptions": [
-    "Assumption that holds for this decision to remain valid."
+    "The underlying cloud provider or infrastructure supports GPU-accelerated node groups.",
+    "The development team has or will acquire competency in Kubernetes and MLOps orchestration.",
+    "Models are containerized using standard formats (e.g., Docker) compatible with OCI registries."
   ],
-  "consequences": "List what becomes easier, what becomes harder, and what follow-up work this decision creates.",
-  "context": "Describe the forces at play: business goals, system constraints, prior decisions this one interacts with, and why a choice must be made now.",
+  "consequences": "### Positive\n* **Availability:** Kubernetes self-healing (automated restarts and rescheduling) ensures high uptime for inference services.\n* **Scalability:** Dynamic scaling of pods and nodes allows the system to handle fluctuating GenAI request volumes.\n* **Resource Optimization:** Bin-packing and resource quotas prevent GenAI workloads from starving other system components.\n* **Portability:** Avoids heavy vendor lock-in, allowing movement between cloud providers (EKS, GKE, AKS) or on-premise clusters.\n\n### Negative\n* **Operational Complexity:** Requires significant MLOps/DevOps expertise to manage cluster health, networking, and GPU drivers.\n* **Overhead:** Small-scale deployments may experience unnecessary latency and cost overhead compared to simple VM-based setups.\n* **Cold Start Latency:** Scaling up new pods involves pulling large model weights (GBs), which can delay availability during sudden spikes.",
+  "context": "The system requires the deployment and orchestration of Generative AI workloads, including Large Language Model (LLM) inference engines (e.g., vLLM, TGI), vector databases, and orchestration layers (e.g., LangChain). These workloads present specific challenges:\n* **Resource Intensity:** High demand for specialized hardware (GPUs) and significant memory footprints.\n* **Scaling Volatility:** Inference requests are often spiky, requiring rapid scaling to maintain latency targets.\n* **Reliability Requirements:** The system must maintain high availability to ensure continuous access to AI capabilities.",
   "createdAt": "2026-04-20T02:12:10Z",
   "date": "2026-04-20",
-  "decision": "State the chosen option in one or two sentences, plus the concrete shape of the decision (components, interfaces, policies).",
+  "decision": "We will adopt **Kubernetes (K8s)** as the primary orchestration platform for the GenAI stack.\n\n**Key implementation strategies:**\n* **GPU Orchestration:** Utilize the NVIDIA Device Plugin for Kubernetes to enable seamless GPU scheduling and resource isolation.\n* **Autoscaling:** Implement Horizontal Pod Autoscaler (HPA) using custom metrics (e.g., request concurrency or GPU duty cycle) rather than standard CPU/RAM metrics.\n* **Deployment Pattern:** Use Helm charts to manage complex dependencies between model servers, vector stores, and application microservices.\n* **Node Management:** Implement specialized Node Pools with Taints and Tolerations to ensure AI workloads run strictly on GPU-optimized instances.",
   "id": "f0904019-9905-4263-af08-d9414cf1c96a",
   "links": [],
   "number": 2,
@@ -29,12 +35,24 @@
       "author": "architect",
       "note": "edit",
       "timestamp": "2026-04-20T02:30:02Z"
+    },
+    {
+      "author": "architect",
+      "note": "edit",
+      "timestamp": "2026-04-20T03:27:52Z"
+    },
+    {
+      "author": "architect",
+      "note": "edit",
+      "timestamp": "2026-04-20T03:28:54Z"
     }
   ],
   "risks": [
-    "Risk statement — what could go wrong and the early signal."
+    "**GPU Scarcity/Cost:** High cost of idle GPU nodes; requires aggressive scale-down policies.",
+    "**Complexity of Networking:** High-throughput requirements between LLM servers and Vector DBs may lead to network bottlenecks within the K8s CNI.",
+    "**Image Pull Latency:** Large container images for AI models can slow down the \"Time-to-Ready\" during scaling events. Mitigation: Use local registry mirrors or pre-warmed nodes."
   ],
-  "slug": "use-kubernetes-for-genai-based-system",
+  "slug": "using-kubernetes-k8s-for-a-genai-based-system",
   "stakeholders": [
     "Engineering",
     "Product",
@@ -44,6 +62,6 @@
   "tags": [
     "platform"
   ],
-  "title": "Use Kubernetes for GenAI-based System",
-  "updatedAt": "2026-04-20T02:30:02Z"
+  "title": "Using Kubernetes (K8s) for a GenAI-based system.",
+  "updatedAt": "2026-04-20T03:28:54Z"
 }

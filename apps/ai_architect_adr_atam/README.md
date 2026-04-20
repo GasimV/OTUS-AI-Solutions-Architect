@@ -182,6 +182,10 @@ Launchers (must be run from `apps/ai_architect_adr_atam/`, foreground):
 - Windows: `start_server.bat`
 - Unix / Git Bash: `./start_server.sh`
 
+The launchers automatically prepend the default MSYS2 UCRT64 runtime paths
+(`C:\msys64\ucrt64\bin` and `C:\msys64\usr\bin`, when present) so OpenSSL and
+MinGW runtime DLLs are available for Gemini API calls.
+
 On launch the server prints a banner showing the resolved paths, the selected
 AI provider, configured provider targets, and the listen address, ending with
 `Press Ctrl+C to stop.`.
