@@ -208,6 +208,12 @@ without printing secrets, HTTP method/path/status for requests, and low-level
 HTTP server errors. Request query strings and request bodies are not logged, so
 LLM prompts and API keys are not written to the log.
 
+To watch logs while using the app from PowerShell:
+
+```powershell
+Get-Content .\logs\server.log -Wait
+```
+
 `logs/*.log` is ignored by git; `logs/.gitkeep` keeps the directory in the
 repository.
 
