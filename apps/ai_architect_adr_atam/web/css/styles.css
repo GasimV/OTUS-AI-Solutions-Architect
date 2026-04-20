@@ -147,6 +147,22 @@ button.mini { padding: 2px 8px; font-size: 12px; }
   border: 1px solid var(--border); background: var(--panel2);
   max-height: 400px; white-space: pre-wrap; padding: 10px; border-radius: var(--radius);
 }
+.ai-progress {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--panel2); padding: 10px; display: flex; flex-direction: column; gap: 8px;
+}
+.ai-progress-head { display: flex; justify-content: space-between; font-weight: 600; }
+.ai-progress-bar {
+  height: 8px; overflow: hidden; border-radius: 6px; background: var(--code);
+}
+.ai-progress-bar span {
+  display: block; width: 40%; height: 100%; background: var(--accent);
+  animation: ai-progress-slide 1.2s infinite ease-in-out;
+}
+@keyframes ai-progress-slide {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(260%); }
+}
 .ai-detail { color: var(--muted); font-size: 13px; line-height: 1.6; }
 .ai-detail .k { color: var(--text); font-weight: 500; display: inline-block; min-width: 120px; }
 

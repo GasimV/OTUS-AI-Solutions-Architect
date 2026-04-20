@@ -217,17 +217,42 @@ const ADR = (() => {
     else ui.ok('AI response applied');
   }
 
-  async function aiDraft() {
-    try {
-      const r = await api.post('/api/ai/draft-adr', {
-        title: $('#adr-title').value || '',
-        notes: $('#ai-adr-notes').value,
-        qualityAttributes: splitCsv($('#adr-qas').value),
+  function withDraftProgress(buttonId, progressId, elapsedId, fn) {
+    const button = $(buttonId);
+    const progress = $(progressId);
+    const elapsed = $(elapsedId);
+    const started = Date.now();
+    button.disabled = true;
+    button.textContent = 'Drafting...';
+    progress.classList.remove('hidden');
+    elapsed.textContent = '0s';
+    const timer = setInterval(() => {
+      elapsed.textContent = Math.max(1, Math.floor((Date.now() - started) / 1000)) + 's';
+    }, 1000);
+    return Promise.resolve()
+      .then(fn)
+      .finally(() => {
+        clearInterval(timer);
+        button.disabled = false;
+        button.textContent = 'Draft';
+        progress.classList.add('hidden');
       });
-      if (!r.ok) return ui.err(r.error || 'AI unavailable');
-      lastAiDraft = r.text;
-      $('#ai-adr-output').textContent = r.text;
-    } catch (e) { ui.err('AI draft failed: ' + e.message); }
+  }
+
+  async function aiDraft() {
+    await withDraftProgress('#ai-draft-adr', '#ai-adr-progress', '#ai-adr-elapsed', async () => {
+      try {
+        $('#ai-adr-output').textContent = 'Draft request sent...';
+        const r = await api.post('/api/ai/draft-adr', {
+          title: $('#adr-title').value || '',
+          notes: $('#ai-adr-notes').value,
+          qualityAttributes: splitCsv($('#adr-qas').value),
+        });
+        if (!r.ok) return ui.err(r.error || 'AI unavailable');
+        lastAiDraft = r.text;
+        $('#ai-adr-output').textContent = r.text;
+      } catch (e) { ui.err('AI draft failed: ' + e.message); }
+    });
   }
 
   // Maps a heading string (e.g. "Alternatives Considered", "1. Decision",

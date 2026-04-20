@@ -151,6 +151,11 @@
         <button id="ai-draft-adr" class="primary">Draft</button>
         <button id="ai-apply-draft">Apply to editor</button>
       </div>
+      <div id="ai-adr-progress" class="ai-progress hidden">
+        <div class="ai-progress-head"><span>Drafting with LLM</span><span id="ai-adr-elapsed">0s</span></div>
+        <div class="ai-progress-bar"><span></span></div>
+        <div class="muted">Waiting for the provider response. Large prompts can take a few minutes.</div>
+      </div>
       <pre id="ai-adr-output" class="ai-output"></pre>
     </aside>
   </section>
@@ -230,6 +235,11 @@
       <div class="form-row">
         <button id="ai-draft-atam" class="primary">Draft fields</button>
         <button id="ai-apply-atam-draft">Apply to editor</button>
+      </div>
+      <div id="ai-atam-progress" class="ai-progress hidden">
+        <div class="ai-progress-head"><span>Drafting with LLM</span><span id="ai-atam-elapsed">0s</span></div>
+        <div class="ai-progress-bar"><span></span></div>
+        <div class="muted">Waiting for the provider response. Large prompts can take a few minutes.</div>
       </div>
       <pre id="ai-atam-output" class="ai-output"></pre>
     </aside>

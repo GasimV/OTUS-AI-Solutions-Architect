@@ -267,7 +267,6 @@ const ATAM = (() => {
 
   function collectQualityAttributes() {
     const values = [];
-    splitCsv($('#atam-tags').value).forEach((x) => values.push(x));
     $$('#atam-approaches .card [data-f="qualityAttributes"]').forEach((el) =>
       splitCsv(el.value).forEach((x) => values.push(x)));
     $$('#atam-scenarios .card [data-f="qualityAttribute"]').forEach((el) => {
@@ -276,31 +275,103 @@ const ATAM = (() => {
     return [...new Set(values.filter(Boolean))];
   }
 
-  async function aiDraftAtam() {
-    try {
-      const r = await api.post('/api/ai/draft-atam', {
-        title: $('#atam-title').value || '',
-        systemContext: $('#atam-system-context').value || '',
-        notes: $('#ai-atam-notes').value,
-        qualityAttributes: collectQualityAttributes(),
+  function withDraftProgress(buttonId, progressId, elapsedId, label, fn) {
+    const button = $(buttonId);
+    const progress = $(progressId);
+    const elapsed = $(elapsedId);
+    const started = Date.now();
+    button.disabled = true;
+    button.textContent = 'Drafting...';
+    progress.classList.remove('hidden');
+    elapsed.textContent = '0s';
+    const timer = setInterval(() => {
+      elapsed.textContent = Math.max(1, Math.floor((Date.now() - started) / 1000)) + 's';
+    }, 1000);
+    return Promise.resolve()
+      .then(fn)
+      .finally(() => {
+        clearInterval(timer);
+        button.disabled = false;
+        button.textContent = label;
+        progress.classList.add('hidden');
       });
-      if (!r.ok) return ui.err(r.error || 'AI unavailable');
-      lastAiDraft = r.text;
-      showDraftOutput(r.text);
-    } catch (e) { ui.err('AI draft failed: ' + e.message); }
+  }
+
+  async function aiDraftAtam() {
+    await withDraftProgress('#ai-draft-atam', '#ai-atam-progress', '#ai-atam-elapsed', 'Draft fields', async () => {
+      try {
+        showDraftOutput('Draft request sent...');
+        const r = await api.post('/api/ai/draft-atam', {
+          title: $('#atam-title').value || '',
+          systemContext: $('#atam-system-context').value || '',
+          notes: $('#ai-atam-notes').value,
+          qualityAttributes: collectQualityAttributes(),
+        });
+        if (!r.ok) return ui.err(r.error || 'AI unavailable');
+        lastAiDraft = r.text;
+        showDraftOutput(r.text);
+      } catch (e) { ui.err('AI draft failed: ' + e.message); }
+    });
+  }
+
+  function isAtamDraftObject(x) {
+    if (!x || typeof x !== 'object' || Array.isArray(x)) return false;
+    return ['systemContext', 'businessDrivers', 'constraints', 'assumptions',
+            'approaches', 'scenarios', 'findings'].some((k) => Object.prototype.hasOwnProperty.call(x, k));
+  }
+
+  function balancedJsonObjects(text) {
+    const s = String(text || '');
+    const out = [];
+    let start = -1;
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let i = 0; i < s.length; i += 1) {
+      const ch = s[i];
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (ch === '\\') {
+          escaped = true;
+        } else if (ch === '"') {
+          inString = false;
+        }
+        continue;
+      }
+      if (ch === '"') {
+        inString = true;
+      } else if (ch === '{') {
+        if (depth === 0) start = i;
+        depth += 1;
+      } else if (ch === '}') {
+        if (depth > 0) depth -= 1;
+        if (depth === 0 && start !== -1) {
+          out.push(s.slice(start, i + 1));
+          start = -1;
+        }
+      }
+    }
+    return out;
   }
 
   function extractDraftJson(text) {
     let s = String(text || '').trim();
     const fenced = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
     if (fenced) s = fenced[1].trim();
-    try { return JSON.parse(s); } catch (_) {}
-    const first = s.indexOf('{');
-    const last = s.lastIndexOf('}');
-    if (first !== -1 && last > first) {
-      return JSON.parse(s.slice(first, last + 1));
+    try {
+      const parsed = JSON.parse(s);
+      if (isAtamDraftObject(parsed)) return parsed;
+    } catch (_) {}
+
+    const candidates = balancedJsonObjects(s);
+    for (let i = candidates.length - 1; i >= 0; i -= 1) {
+      try {
+        const parsed = JSON.parse(candidates[i]);
+        if (isAtamDraftObject(parsed)) return parsed;
+      } catch (_) {}
     }
-    throw new Error('AI draft did not contain parseable JSON.');
+    throw new Error('AI draft did not contain a parseable ATAM JSON object.');
   }
 
   function asArray(x) {
