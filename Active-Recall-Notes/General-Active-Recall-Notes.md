@@ -7,11 +7,13 @@
 - [Strategy, Product & Enterprise Architecture](#strategy-product-enterprise-architecture)
   - [TCO (Total Cost of Ownership)](#tco-total-cost-of-ownership)
   - [Work-Breakdown Structure (WBS)](#work-breakdown-structure-wbs)
+  - [RACI Matrix](#raci-matrix)
   - [Statement of Work (SOW)](#statement-of-work-sow)
   - [Service-Level Agreement (SLA)](#service-level-agreement-sla)
   - [Product Requirements Document (PRD)](#product-requirements-document-prd)
     - [Components (from Wikipedia):](#components-from-wikipedia)
     - [Explanation of PRD from ChatGPT (February 2026)](#explanation-of-prd-from-chatgpt-february-2026)
+  - [Software Design Document (SDD)](#software-design-document-sdd)
   - [Average Order Value (AOV)](#average-order-value-aov)
   - [Conversion Rate (CR)](#conversion-rate-cr)
   - [Gross Merchandise Value (GMV)](#gross-merchandise-value-gmv)
@@ -19,6 +21,7 @@
   - [4+1 architectural view model](#4-1-architectural-view-model)
   - [The Open Group Architecture Framework (TOGAF)](#the-open-group-architecture-framework-togaf)
   - [Enterprise Architecture (EA)](#enterprise-architecture-ea)
+  - [BSS vs CRM](#bss-vs-crm)
   - [Procurement Life Cycle (Procurement Process)](#procurement-life-cycle-procurement-process)
     - [Procurement Lifecycle — AI/Software Architect View (Customer-Side/Buying Organization Perspective)](#procurement-lifecycle-ai-software-architect-view-customer-side-buying-organization-perspective)
     - [Procurement Lifecycle — AI/Software Architect View (Vendor/Solution Provider Perspective)](#procurement-lifecycle-ai-software-architect-view-vendor-solution-provider-perspective)
@@ -48,6 +51,9 @@
   - [Real-Time Streaming Protocol](#real-time-streaming-protocol)
   - [Simple Mail Transfer Protocol](#simple-mail-transfer-protocol)
   - [Backend for Frontend Pattern (BFF)](#backend-for-frontend-pattern-bff)
+  - [JDBC (Java Database Connectivity)](#jdbc-java-database-connectivity)
+  - [SAS Marketing Automation](#sas-marketing-automation)
+  - [EDR Files](#edr-files)
 - [Cloud, Containers & Platform Infrastructure](#cloud-containers-platform-infrastructure)
   - [K8s (Kubernetes)](#k8s-kubernetes)
     - [Why Kubernetes uses pods (not just containers)](#why-kubernetes-uses-pods-not-just-containers)
@@ -63,6 +69,15 @@
     - [CNI (Container Network Interface)](#cni-container-network-interface)
     - [ClusterIP, NodePort & LoadBalancer in K8s](#clusterip-nodeport-loadbalancer-in-k8s)
     - [Kubernetes UI/Dashboard & Core YAML Files](#kubernetes-ui-dashboard-core-yaml-files)
+  - [Istio](#istio)
+  - [Unleash](#unleash)
+  - [Argo CD](#argo-cd)
+    - [Istio vs. Unleash vs. Argo CD](#istio-vs-unleash-vs-argo-cd)
+    - [Argo CD vs. GitLab CI/CD](#argo-cd-vs-gitlab-ci-cd)
+  - [Ceph](#ceph)
+  - [S3-Compatible Object Storage](#s3-compatible-object-storage)
+  - [Active-Active vs. Active-Passive Architecture](#active-active-vs-active-passive-architecture)
+  - [Load Balancer, VIP & WIP](#load-balancer-vip-wip)
   - [Docker Swarm](#docker-swarm)
   - [Containers vs Virtual Machines Security Basics](#containers-vs-virtual-machines-security-basics)
   - [Serverless and FaaS](#serverless-and-faas)
@@ -91,19 +106,25 @@
   - [Prometheus & Grafana](#prometheus-grafana)
   - [Event Bus](#event-bus)
   - [Messaging Systems. Message Queue (MQ), Event Bus & Message Broker](#messaging-systems-message-queue-mq-event-bus-message-broker)
+  - [Simple Network Management Protocol (SNMP)](#simple-network-management-protocol-snmp)
+  - [syslog](#syslog)
+  - [Network Operations Center (NOC)](#network-operations-center-noc)
 - [Security, Identity & Compliance](#security-identity-compliance)
   - [VPN Server](#vpn-server)
   - [Payment Card Industry Data Security Standard (PCI DSS)](#payment-card-industry-data-security-standard-pci-dss)
   - [Write once read many (WORM)](#write-once-read-many-worm)
   - [Role-Based Access Control (RBAC)](#role-based-access-control-rbac)
+  - [PBAC & RBAC](#pbac-rbac)
   - [Security Information and Event Management (SIEM)](#security-information-and-event-management-siem)
   - [General Data Protection Regulation (GDPR)](#general-data-protection-regulation-gdpr)
   - [Privacy-Enhancing Technologies: SMPC, FHE & TEE](#privacy-enhancing-technologies-smpc-fhe-tee)
   - [Self-Assessment Questionnaires (SAQs)](#self-assessment-questionnaires-saqs)
   - [TLS 1.2+ (Data in Transit) & AES-256 (Data at Rest)](#tls-1-2-data-in-transit-aes-256-data-at-rest)
   - [Identity Provider (IdP)](#identity-provider-idp)
+  - [Lightweight Directory Access Protocol (LDAP)](#lightweight-directory-access-protocol-ldap)
   - [OAuth](#oauth)
   - [SSO & MFA](#sso-mfa)
+  - [Federated Identity and SSO](#federated-identity-and-sso)
   - [Security Information and Event Management (SIEM)](#security-information-and-event-management-siem-2)
   - [Mutual TLS (mTLS)](#mutual-tls-mtls)
   - [DLP (Data Loss Prevention) Filter](#dlp-data-loss-prevention-filter)
@@ -1182,6 +1203,118 @@ Architecture protects the enterprise.
 
 ```text
 Architecture protects the product AND the company’s profitability.
+```
+
+[Back to Contents](#contents)
+
+---
+
+<a id="raci-matrix"></a>
+
+### RACI Matrix
+
+**RACI** is a simple responsibility model used in project and delivery governance to clarify who does the work, who owns the outcome, who must be consulted, and who only needs status visibility.
+
+**RACI stands for**
+
+- **Responsible (R)**: does the work
+- **Accountable (A)**: ultimately owns the result and signs off
+- **Consulted (C)**: gives input before or during the work
+- **Informed (I)**: receives updates, but does not approve or advise directly
+
+**Why it matters**
+
+- **Clarifies roles** and avoids overlap
+- **Improves communication** by defining who should be involved
+- **Improves accountability** by making ownership explicit
+- **Speeds decisions** because the approver is known in advance
+
+**Good RACI rules**
+
+- each task should have **at least one Responsible**
+- each task should have **exactly one Accountable**
+- too many Consulted roles slows work
+- Informed is a **one-way update**, not a decision loop
+
+**How to build a RACI chart**
+
+1. List tasks or deliverables
+2. List people / teams / roles
+3. Assign **R / A / C / I** per task
+4. Review for gaps, overload, or ambiguous ownership
+
+**Memory hook**
+
+```text
+R does the work, A owns the result, C advises, I is kept updated.
+```
+
+[Back to Contents](#contents)
+
+---
+
+<a id="software-design-document-sdd"></a>
+
+### Software Design Document (SDD)
+
+**A Software Design Document (SDD)** explains **how** a software system or feature will be implemented. It complements a requirements document such as a PRD or SOW, which defines **what** the solution must do.
+
+**An SDD usually covers**
+
+- **architecture and component design**
+- **module boundaries and interactions**
+- **data flow and storage design**
+- **technology choices and technical constraints**
+- **integration patterns and interfaces**
+- **deployment, security, and operational considerations**
+
+**Why an SDD matters**
+
+- gives developers a shared implementation blueprint
+- aligns stakeholders on technical approach
+- helps estimate effort, risks, and dependencies
+- reduces misunderstandings during build and review
+
+**Simple distinction**
+
+| **Document** | **Main question** |
+| --- | --- |
+| **PRD / Requirements** | What should the product do? |
+| **SDD** | How will the system be built? |
+
+**Memory hook**
+
+```text
+PRD says what to build; SDD says how to build it.
+```
+
+[Back to Contents](#contents)
+
+---
+
+<a id="bss-vs-crm"></a>
+
+### BSS vs CRM
+
+**BSS (Business Support Systems)** is the broader enterprise layer that supports commercial operations such as product catalog, order management, billing, charging, revenue assurance, and customer service. **CRM (Customer Relationship Management)** is a narrower customer-facing domain focused on managing customer interactions, history, service cases, sales, and engagement.
+
+**Key difference**
+
+| **Aspect** | **BSS** | **CRM** |
+| --- | --- | --- |
+| **Scope** | Broad business operations | Customer interaction and relationship management |
+| **Typical functions** | Billing, order management, product catalog, revenue workflows | Customer profiles, sales, service history, support, campaigns |
+| **Users** | Operations, billing, service delivery, commercial teams | Sales, marketing, customer service |
+| **Role** | Enterprise operational backbone | Customer-facing subdomain or subsystem |
+
+**Important architectural point**
+
+CRM is often **part of** or **integrated into** the wider BSS landscape. In telecom and similar industries, BSS typically includes CRM plus other business-critical operational systems.
+
+**Memory hook**
+
+```text
+BSS = the wider business operations platform; CRM = the customer relationship slice inside it.
 ```
 
 [Back to Contents](#contents)
@@ -2694,6 +2827,145 @@ The Backend for Frontend (BFF) Pattern addresses the challenge of serving divers
 
 ---
 
+<a id="jdbc-java-database-connectivity"></a>
+
+### JDBC (Java Database Connectivity)
+
+**JDBC** is the standard Java API for connecting Java applications to relational databases. It lets Java code open database connections, run SQL queries or updates, manage transactions, and read results in a vendor-neutral way through drivers.
+
+**What JDBC is used for**
+
+- connecting Java services to databases
+- executing SQL statements
+- reading result sets
+- handling transactions and connection pooling
+
+**Architectural relevance**
+
+In integration and platform diagrams, **JDBC** usually means a service is accessing a relational database directly using a database driver rather than through a REST API.
+
+**Memory hook**
+
+```text
+JDBC = the standard Java way to talk to SQL databases.
+```
+
+[Back to Contents](#contents)
+
+---
+
+<a id="sas-marketing-automation"></a>
+
+### SAS Marketing Automation
+
+**SAS Marketing Automation** is an enterprise campaign-management platform used to design, schedule, execute, and analyze marketing campaigns across customer channels.
+
+**Typical responsibilities**
+
+- audience / segment targeting
+- campaign orchestration
+- outbound execution through channels
+- offer and response tracking
+- feedback export for reporting and model learning
+
+**Architectural role**
+
+In solution diagrams, SAS Marketing Automation is usually an **external enterprise execution platform** that receives approved campaign outputs from a decisioning or NBA engine and returns campaign outcome data.
+
+**Memory hook**
+
+```text
+Decisioning selects the next best action; SAS Marketing Automation executes the campaign.
+```
+
+[Back to Contents](#contents)
+
+---
+
+<a id="edr-files"></a>
+
+### EDR Files
+
+**In this context, EDR almost certainly means Event Data Records** (sometimes also called **Event Detail Records**, depending on the system or vendor). These are structured files exchanged between systems for downstream processing, reconciliation, audit, reporting, compliance, or billing-like workflows.
+
+**Do not confuse this with Endpoint Detection and Response (EDR).**
+
+That security meaning of EDR refers to endpoint-security tooling used to:
+
+- monitor laptops, servers, and workstations
+- detect suspicious behavior or malware
+- investigate security incidents
+- support response and containment actions
+
+So there are two very different meanings:
+
+| **EDR meaning** | **Context** | **Purpose** |
+| --- | --- | --- |
+| **Event Data Records** | Integration / business data exchange | Export structured operational or transactional records |
+| **Endpoint Detection and Response** | Cybersecurity / endpoint protection | Detect and respond to threats on devices and hosts |
+
+**What EDR means here**
+
+EDR files are typically:
+
+- **system-generated records of events or transactions**
+- **exported in structured file formats** such as CSV, XML, or JSON
+- used for **audit, reporting, billing-like workflows, external integration, and traceability**
+
+**Why this fits the requirement**
+
+If a requirement says:
+
+```text
+export EDR files via FTP/SFTP and track these exports
+```
+
+that usually implies:
+
+- **batch file transfer**, not just runtime log streaming
+- **structured business or operational datasets**, not free-form logs
+- **export traceability**, meaning the system should know what was sent, when, and whether delivery succeeded or failed
+
+**Typical uses**
+
+- exporting recommendation or campaign records
+- reconciliation between source and target systems
+- audit evidence and delivery tracking
+- mediation or billing-adjacent processing in telecom environments
+
+**Important distinction**
+
+| **Concept** | **Purpose** |
+| --- | --- |
+| **EDR files** | Business / operational data exchange and traceability |
+| **Logging system** | Internal diagnostics, debugging, monitoring, and technical observability |
+
+So an external logging tool does **not** replace an EDR export requirement.
+
+**Architectural implication**
+
+If a solution says it supports **EDR export**, it usually means the platform can generate governed structured files, deliver them through FTP / SFTP or similar interfaces, and retain evidence that the export occurred.
+
+That makes EDR export a **functional integration requirement**, not just a logging concern.
+
+**Clarifying question if needed**
+
+If the customer terminology is not fully defined, a precise follow-up is:
+
+```text
+Can you confirm whether EDR refers to Event Data Records and provide the expected format/schema?
+```
+
+**Memory hook**
+
+```text
+EDR file = structured Event Data Record export for downstream systems, reconciliation, audit, and traceability.
+```
+
+[Back to Contents](#contents)
+
+---
+
 <a id="cloud-containers-platform-infrastructure"></a>
 
 ## Cloud, Containers & Platform Infrastructure
@@ -4150,6 +4422,236 @@ service:
 
 ---
 
+<a id="istio"></a>
+
+### Istio
+
+**Istio** is an open-source **service mesh** for Kubernetes-centric microservices. It provides a smart networking layer between services so teams can enforce communication policy, security, observability, and traffic control without pushing that complexity into each application codebase.
+
+**What Istio solves**
+
+In microservices environments, service-to-service calls often need:
+
+- **encryption**
+- **authentication / authorization**
+- **traffic routing**
+- **retries / timeouts**
+- **metrics / tracing**
+
+Istio centralizes those cross-cutting concerns in the platform layer.
+
+**How Istio works**
+
+- **Data plane**: Envoy proxies sit next to services, commonly as sidecars
+- **Control plane**: Istio configures those proxies centrally
+- **Result**: traffic passes through proxies where security, telemetry, and routing policy are enforced
+
+**Key capabilities**
+
+- **Security**: mTLS, identity-aware policy, authorization controls
+- **Traffic control**: load balancing, canary / A-B routing, traffic splitting
+- **Observability**: metrics, logs, tracing
+- **Resilience**: retries, timeouts, circuit breaking
+
+**Memory hook**
+
+```text
+Istio = network control layer for microservices.
+```
+
+[Back to Contents](#contents)
+
+---
+
+<a id="unleash"></a>
+
+### Unleash
+
+**Unleash** is an open-source **feature flag / feature toggle platform**. It lets teams turn features on or off without redeploying the application, which cleanly separates **deployment** from **feature release**.
+
+**What Unleash solves**
+
+Without feature flags:
+
+- deploying code and exposing features happen together
+- rollback is heavier
+- experimentation and gradual exposure are harder
+
+Unleash allows teams to deploy safely first and decide later who actually sees a feature.
+
+**How Unleash works**
+
+- **Unleash server** stores feature-flag configuration
+- **SDKs** in applications evaluate whether a feature is enabled
+- **Optional proxy** supports frontend and edge-friendly access patterns
+
+**Key capabilities**
+
+- **Feature flags**: instant enable / disable
+- **Gradual rollout**: 1%, 10%, 100%
+- **A/B testing / targeting**: expose to selected user cohorts
+- **Kill switch**: disable a broken feature fast
+
+**Memory hook**
+
+```text
+Unleash = remote control for application features.
+```
+
+[Back to Contents](#contents)
+
+---
+
+<a id="argo-cd"></a>
+
+### Argo CD
+
+**Argo CD** is a **GitOps continuous delivery (CD) tool for Kubernetes**. It watches Git, treats Git as the source of truth for desired cluster state, and syncs Kubernetes to match what is declared in Git.
+
+**What Argo CD solves**
+
+Instead of manually pushing deployments into clusters:
+
+- deployment configuration lives in Git
+- Argo CD detects changes
+- Argo CD syncs the cluster to the declared state
+- drift from the desired configuration becomes visible and correctable
+
+**What Argo CD does**
+
+- **Continuous Delivery for Kubernetes**
+- **GitOps pull-based deployment**
+- **Drift detection and reconciliation**
+- **Versioned, declarative deployment history through Git**
+
+**What Argo CD does not do**
+
+- **build code**
+- **run tests**
+- **create artifacts such as Docker images**
+
+So Argo CD is **CD only**, not full CI/CD.
+
+**Memory hook**
+
+```text
+Argo CD = Git-driven deployer that keeps Kubernetes aligned with Git.
+```
+
+<a id="istio-vs-unleash-vs-argo-cd"></a>
+
+#### Istio vs. Unleash vs. Argo CD
+
+These tools belong to the same cloud-native ecosystem, but they operate at different layers.
+
+| **Tool** | **Category** | **What it controls** |
+| --- | --- | --- |
+| **Istio** | Service mesh | Network traffic and policy between services |
+| **Unleash** | Feature management | Which features users can see |
+| **Argo CD** | Deployment / CD | How applications get deployed to Kubernetes |
+
+**How they fit together**
+
+- **Argo CD** deploys workloads to Kubernetes
+- **Istio** controls how deployed services communicate
+- **Unleash** controls what functionality is exposed to users
+
+| **Tool** | **Analogy** |
+| --- | --- |
+| **Argo CD** | Construction manager that updates buildings from the Git blueprint |
+| **Istio** | Traffic control system between buildings |
+| **Unleash** | Light switches inside the buildings |
+
+<a id="argo-cd-vs-gitlab-ci-cd"></a>
+
+#### Argo CD vs. GitLab CI/CD
+
+**Argo CD is not a full CI/CD platform.** It handles the **delivery / deployment** part only, while GitLab CI/CD can cover **build + test + deploy**.
+
+| **Aspect** | **Argo CD** | **GitLab CI/CD** |
+| --- | --- | --- |
+| **Type** | CD (GitOps) tool | Full CI/CD platform |
+| **Role** | Deploy apps to Kubernetes | Build, test, and deploy |
+| **Model** | **Pull-based**: cluster syncs from Git | **Push-based**: pipeline pushes deployment |
+| **Scope** | Primarily Kubernetes delivery | Broader pipelines across many environments |
+
+**Typical modern workflow**
+
+1. Developer pushes code
+2. CI system such as **GitLab CI** or **GitHub Actions** builds, tests, and publishes artifacts
+3. Deployment manifests in Git are updated
+4. **Argo CD** detects the Git change and syncs Kubernetes
+
+**Key takeaway**
+
+```text
+GitLab CI/CD = build + test + deploy
+Argo CD = deploy only, using GitOps
+```
+
+[Back to Contents](#contents)
+
+---
+
+<a id="load-balancer-vip-wip"></a>
+
+### Load Balancer, VIP & WIP
+
+**A load balancer** distributes client traffic across multiple backend servers so no single server becomes the bottleneck. It improves **availability, scalability, and performance** by routing traffic only to healthy servers according to configured policies.
+
+**What a load balancer does**
+
+- accepts client traffic at a single entry point
+- checks backend health
+- forwards traffic to the best available server
+- can preserve sessions when required
+- continues serving traffic when one backend fails
+
+**Common balancing strategies**
+
+- **round-robin**
+- **least connections**
+- **weighted distribution**
+
+**Layer 4 vs Layer 7**
+
+- **Layer 4 load balancer**: routes based on TCP / UDP connection data
+- **Layer 7 load balancer**: routes based on HTTP / HTTPS application logic such as host, path, headers, or cookies
+
+**What is a VIP**
+
+**VIP (Virtual IP)** is the stable client-facing IP address of the service. Clients connect to the VIP, while the load balancer forwards requests to backend servers with their actual addresses.
+
+**Key idea**
+
+```text
+Client -> VIP -> Load Balancer -> Real backend server IPs
+```
+
+**Why VIP matters**
+
+- hides backend server changes from clients
+- supports redundancy and failover
+- keeps the service endpoint stable even if backends change
+
+**WIP / Wide IP**
+
+At a broader traffic-management level, a **WIP (Wide IP)** or equivalent global traffic-management construct maps users to the best regional or site-level endpoint, often selecting among multiple **VIPs** across data centers or regions.
+
+- **VIP** = local load-balancing endpoint inside one site / zone / cluster
+- **WIP** = global traffic-management layer across multiple VIPs / sites
+
+**Memory hook**
+
+```text
+VIP = local service entry IP.
+WIP = global traffic steering across multiple VIPs.
+```
+
+[Back to Contents](#contents)
+
+---
+
 <a id="docker-swarm"></a>
 
 ### Docker Swarm
@@ -4956,6 +5458,116 @@ While originally designed for C/C++ compilation, Makefiles are language-agnostic
 
 ---
 
+<a id="ceph"></a>
+
+### Ceph
+
+**Ceph** is an open-source **software-defined storage platform** that provides **object storage, block storage, and file storage** on top of a distributed cluster.
+
+**Why Ceph matters**
+
+- built for scalability and fault tolerance
+- uses commodity hardware
+- supports multiple storage interfaces from one platform
+- commonly used in private cloud and Kubernetes-centric environments
+
+**Common modes**
+
+- **Object**: via S3 / Swift-compatible interfaces
+- **Block**: via RBD volumes
+- **File**: via CephFS
+
+**Architectural relevance**
+
+Ceph is often chosen when a platform needs on-premises or self-managed storage with replication, resilience, and support for both application data and infrastructure workloads.
+
+**Memory hook**
+
+```text
+Ceph = one distributed storage platform for object, block, and file storage.
+```
+
+[Back to Contents](#contents)
+
+---
+
+<a id="s3-compatible-object-storage"></a>
+
+### S3-Compatible Object Storage
+
+**S3-compatible object storage** is any storage system that exposes an API compatible with Amazon S3, allowing applications and tools to store and retrieve objects without depending on AWS specifically.
+
+**What it is good for**
+
+- artifacts and model files
+- backups and archives
+- raw and intermediate data
+- media or document storage
+- cloud-native application state that fits object semantics
+
+**Why compatibility matters**
+
+If storage is **S3-compatible**, many existing SDKs, backup tools, data platforms, and AI / MLOps tools can use it with minimal changes.
+
+**Relationship to Ceph**
+
+Ceph can expose an **S3-compatible object interface**, but S3-compatible storage can also come from other products such as MinIO or cloud providers.
+
+**Memory hook**
+
+```text
+S3-compatible object storage = object storage that speaks the S3 language.
+```
+
+[Back to Contents](#contents)
+
+---
+
+<a id="active-active-vs-active-passive-architecture"></a>
+
+### Active-Active vs. Active-Passive Architecture
+
+**Active-Active** and **Active-Passive** are two high-availability operating modes used to reduce downtime and improve resilience.
+
+| **Aspect** | **Active-Active** | **Active-Passive** |
+| --- | --- | --- |
+| **Normal operation** | Multiple nodes / sites serve traffic at the same time | One primary serves traffic, standby waits for failover |
+| **Resource usage** | Higher utilization | Lower standby utilization |
+| **Scalability** | Better horizontal scaling | Limited scaling from passive side |
+| **Failover** | Usually smoother and more transparent | Simpler but may involve switchover delay |
+| **Complexity** | Higher | Lower |
+
+**Active-Active**
+
+- all active nodes process requests
+- supports load sharing and geographic resilience
+- best when high throughput and continuous availability are required
+
+**Active-Passive**
+
+- one site or node is primary
+- standby takes over only during failure or switchover
+- easier to reason about and often cheaper to operate
+
+**DC1 / DC2 in active-passive**
+
+If a design says **DC1 active, DC2 passive**, it means:
+
+- **DC1** handles live traffic in normal operation
+- **DC2** stays synchronized enough for failover
+- if DC1 fails, DC2 takes over as the new active site
+
+**Memory hook**
+
+```text
+Active-Active = both sides work now.
+Active-Passive = one side works, one side waits.
+```
+
+[Back to Contents](#contents)
+
+---
+
 <a id="data-ai-knowledge-systems"></a>
 
 ## Data, AI & Knowledge Systems
@@ -5707,6 +6319,86 @@ An Event Bus is an architectural pattern (or system) that distributes events to 
 
 ---
 
+<a id="simple-network-management-protocol-snmp"></a>
+
+### Simple Network Management Protocol (SNMP)
+
+**SNMP** is a standard protocol used to monitor and manage network devices such as routers, switches, firewalls, UPS devices, and some servers.
+
+**What SNMP is used for**
+
+- collecting device status and counters
+- receiving traps / alerts on failures or threshold breaches
+- supporting centralized infrastructure monitoring
+
+**Architectural relevance**
+
+If a platform integrates with a NOC or monitoring system through **SNMP**, it usually means infrastructure-style health and fault events can be consumed by enterprise operations tooling.
+
+**Memory hook**
+
+```text
+SNMP = standard protocol for monitoring and alerting on network devices.
+```
+
+[Back to Contents](#contents)
+
+---
+
+<a id="syslog"></a>
+
+### syslog
+
+**syslog** is the long-standing standard for message logging from operating systems, network devices, and infrastructure software to a centralized log collector or monitoring platform.
+
+**Why syslog matters**
+
+- provides a common format / transport for operational logs
+- centralizes logs from many devices and systems
+- supports incident investigation and audit trails
+
+**Typical use**
+
+Applications may write application logs elsewhere, but infrastructure and security platforms often still forward operational events through **syslog** to SIEM, log management, or NOC tooling.
+
+**Memory hook**
+
+```text
+syslog = common pipe for infrastructure and device log messages.
+```
+
+[Back to Contents](#contents)
+
+---
+
+<a id="network-operations-center-noc"></a>
+
+### Network Operations Center (NOC)
+
+**A Network Operations Center (NOC)** is the operational team and tooling function responsible for monitoring, triaging, and coordinating response to infrastructure and service issues.
+
+**Typical responsibilities**
+
+- monitor service and network health
+- receive alarms from monitoring systems
+- open / coordinate incidents and escalations
+- track SLA-impacting events
+- hand off security events to SOC / SIEM workflows when needed
+
+**Architectural role**
+
+In architecture diagrams, the NOC is usually an **external operations function** that consumes alerts, logs, metrics, SNMP traps, and tickets rather than being part of the application runtime itself.
+
+**Memory hook**
+
+```text
+NOC = the operations control room for service and infrastructure health.
+```
+
+[Back to Contents](#contents)
+
+---
+
 <a id="security-identity-compliance"></a>
 
 ## Security, Identity & Compliance
@@ -5824,6 +6516,46 @@ WORM prevents important data being deleted or modified, helping to preserve its 
 **In computer systems security, role-based access control (RBAC) or role-based security** is an approach to restricting system access to authorized users, and to implementing mandatory access control (MAC) or discretionary access control (DAC).
 
 Role-based access control is a policy-neutral access control mechanism defined around roles and privileges. The components of RBAC such as role-permissions, user-role and role-role relationships make it simple to perform user assignments. A study by NIST has demonstrated that RBAC addresses many needs of commercial and government organizations. RBAC can be used to facilitate administration of security in large organizations with hundreds of users and thousands of permissions. Although RBAC is different from MAC and DAC access control frameworks, it can enforce these policies without any complication.
+
+[Back to Contents](#contents)
+
+---
+
+<a id="pbac-rbac"></a>
+
+### PBAC & RBAC
+
+**RBAC (Role-Based Access Control)** grants permissions based on roles such as `admin`, `analyst`, or `reviewer`. **PBAC (Policy-Based Access Control)** makes access decisions from evaluated policies, often using attributes such as user, resource, action, environment, or business context.
+
+**Core difference**
+
+| **Model** | **Decision basis** | **Best for** |
+| --- | --- | --- |
+| **RBAC** | Fixed roles mapped to permissions | Stable organizational responsibilities |
+| **PBAC** | Evaluated policies and context | Fine-grained, context-aware authorization |
+
+**RBAC**
+
+- simpler to understand and operate
+- good for enterprise role structures
+- can become rigid when many exceptions appear
+
+**PBAC**
+
+- supports dynamic conditions such as time, geography, data sensitivity, or business status
+- more expressive than pure role mapping
+- usually more complex to design and govern
+
+**Practical view**
+
+Many enterprise systems use **RBAC as the base model** and layer **policy checks** on top for finer control.
+
+**Memory hook**
+
+```text
+RBAC answers "what can this role do?"
+PBAC answers "is this action allowed under current policy and context?"
+```
 
 [Back to Contents](#contents)
 
@@ -6271,6 +7003,33 @@ An IdP may use one or more of these factors to identify a user. Using multiple f
 
 ---
 
+<a id="lightweight-directory-access-protocol-ldap"></a>
+
+### Lightweight Directory Access Protocol (LDAP)
+
+**LDAP** is a protocol for querying and managing directory services such as user accounts, groups, organizational units, and authentication-related metadata.
+
+**What LDAP is commonly used for**
+
+- centralized user and group directories
+- authentication lookups
+- role / group resolution for enterprise applications
+- integration with Active Directory and other directory services
+
+**Architectural relevance**
+
+When an application says it integrates with **LDAP**, it usually means it can delegate identity lookup, group membership, or authentication to an enterprise directory rather than maintaining all identities locally.
+
+**Memory hook**
+
+```text
+LDAP = the standard protocol for reading and using enterprise directory data.
+```
+
+[Back to Contents](#contents)
+
+---
+
 <a id="oauth"></a>
 
 ### OAuth
@@ -6315,6 +7074,52 @@ Multi-Factor Authentication (MFA) requires users to provide two or more verifica
 - **Enhances user experience without compromising security**
 
 **In summary, SSO and MFA are complementary**: SSO streamlines access, and MFA ensures that access is secure. Implementing both together is considered a best practice for modern cybersecurity strategies.
+
+[Back to Contents](#contents)
+
+---
+
+<a id="federated-identity-and-sso"></a>
+
+### Federated Identity and SSO
+
+**SSO (Single Sign-On)** and **Federated Identity Management** both reduce repeated authentication, but they operate at different scopes.
+
+**SSO**
+
+- one login gives access to multiple applications
+- usually within the same organization or trust boundary
+- improves usability and reduces password fatigue
+
+**Federated identity**
+
+- extends trusted authentication across organizations or domains
+- one organization acts as the **Identity Provider (IdP)**
+- another acts as the **Service Provider (SP)** or relying application
+- commonly uses standards such as **SAML**, **OAuth**, or **OpenID Connect**
+
+**Core difference**
+
+| **Aspect** | **SSO** | **Federated Identity** |
+| --- | --- | --- |
+| **Scope** | Usually one organization / domain | Multiple organizations / trust domains |
+| **Main purpose** | Convenient repeated access | Cross-domain identity trust and delegated authentication |
+| **Typical pattern** | Central login for internal apps | External application trusts another party's identity provider |
+
+**Typical federated flow**
+
+1. User opens the service provider application
+2. Service provider redirects the user to the identity provider
+3. Identity provider authenticates the user
+4. Identity provider sends assertion / token back
+5. Service provider grants access without storing the user's password
+
+**Memory hook**
+
+```text
+SSO = one login for many apps.
+Federation = one trusted identity used across organizational boundaries.
+```
 
 [Back to Contents](#contents)
 
