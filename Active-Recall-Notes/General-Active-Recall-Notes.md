@@ -2447,16 +2447,210 @@ Server-Side Rendering (SSR) in web applications dynamically generates full HTML 
 
 ### gRPC
 
-**gRPC** is a high-performance, open-source Remote Procedure Call (RPC) framework initially developed by Google, designed to connect services efficiently within and across data centers. It uses HTTP/2 for transport and Protocol Buffers (Protobuf) as the interface definition language, offering strong typing, code generation, and low-latency communication.
+**gRPC** stands for **Google Remote Procedure Call**. It is a high-performance, open-source **Remote Procedure Call (RPC)** framework for calling functions on a remote server as if they were local functions.
+
+**Core Idea**
+
+Instead of sending raw HTTP requests manually, like in many REST APIs, gRPC lets you:
+
+- Define services and methods.
+- Generate client and server code.
+- Call remote methods like normal functions.
+- Let gRPC handle networking, serialization, transport, and streaming behind the scenes.
 
 **Key features and benefits of gRPC include**:
 
-- **High Performance**: Uses compact binary serialization (Protobuf), resulting in smaller, faster messages compared to JSON/XML.
-- **Streaming**: Supports four types of communication: unary (single request/response), server streaming, client streaming, and bidirectional streaming.
-- **Contract-First**: API contracts are strictly defined in .proto files, which are used to generate client and server code for multiple languages, ensuring type safety.
-- **Modern Transport**: Leverages HTTP/2 for features like multiplexing requests over a single connection and bidirectional streaming.
+- **High Performance**: Uses **HTTP/2** and compact binary serialization, resulting in smaller, faster messages compared to JSON/XML.
+- **HTTP/2 Transport**: Supports multiplexing, so multiple requests can share one connection efficiently.
+- **Protocol Buffers (Protobuf)**: Uses a compact, strongly typed binary format that is faster and smaller than JSON/XML.
+- **Streaming**: Supports four types of communication: unary, server streaming, client streaming, and bidirectional streaming.
+- **Contract-First**: API contracts are strictly defined in `.proto` files, which are used to generate client and server code for multiple languages, ensuring type safety.
 - **Use Cases**: Highly effective for microservices, mobile applications, and real-time communication systems where low latency is critical.
 - **gRPC vs REST**: While REST is standard for public APIs using JSON, gRPC is often preferred for internal microservices due to its superior performance, strict contract definitions, and streaming capabilities.
+
+**Communication Types**
+
+| Type | Pattern | Meaning |
+| --- | --- | --- |
+| Unary | Request -> Response | One request returns one response. |
+| Server streaming | Request -> Stream of responses | Client sends one request; server sends many responses. |
+| Client streaming | Stream of requests -> Response | Client sends many requests; server returns one response. |
+| Bidirectional streaming | Stream of requests -> Stream of responses | Both sides can send streams. |
+
+**gRPC Architecture Mental Model**
+
+```text
+Client -> Stub -> gRPC -> Network -> gRPC -> Server Implementation
+```
+
+- **Client**: Calls a method as if it were local.
+- **Stub**: Auto-generated client-side function/proxy.
+- **gRPC runtime**: Handles transport, serialization, and network communication.
+- **Server implementation**: Contains the actual business logic.
+
+**Protocol Buffers (`.proto` files)**
+
+A `.proto` file is a **language-neutral schema file** used to define:
+
+- **Messages**: Data structures.
+- **Services**: RPC APIs and methods.
+
+**Basic `.proto` Structure**
+
+```proto
+syntax = "proto3";
+
+service UserService {
+  rpc GetUser (UserRequest) returns (UserResponse);
+}
+
+message UserRequest {
+  int32 user_id = 1;
+}
+
+message UserResponse {
+  string name = 1;
+  int32 age = 2;
+}
+```
+
+**Breakdown for Active Recall**
+
+**1. `syntax = "proto3";`**
+
+- Specifies the Protobuf version.
+- `proto3` is the modern standard.
+
+**2. `service`**
+
+- Defines the API surface: the available RPC methods.
+- Think: **service = class**.
+
+```proto
+service UserService {
+  rpc GetUser (UserRequest) returns (UserResponse);
+}
+```
+
+**3. `rpc` Methods**
+
+- Defines a remote method/function.
+- Input = request message.
+- Output = response message.
+- Think: **rpc = function**.
+
+```proto
+rpc GetUser (UserRequest) returns (UserResponse);
+```
+
+**RPC Variants**
+
+```proto
+rpc A (Req) returns (Res);                 // Unary
+rpc B (Req) returns (stream Res);          // Server streaming
+rpc C (stream Req) returns (Res);          // Client streaming
+rpc D (stream Req) returns (stream Res);   // Bidirectional streaming
+```
+
+**4. `message`**
+
+- Defines a data structure.
+- Similar mental model: a DTO, struct, or typed request/response object.
+
+```proto
+message UserRequest {
+  int32 user_id = 1;
+}
+```
+
+Each field has:
+
+- **Type**
+- **Name**
+- **Field number/tag**
+
+**5. Field Numbers**
+
+```proto
+int32 user_id = 1;
+```
+
+Field numbers are important because they are used in the binary encoding.
+
+Rules:
+
+- Must be unique within a message.
+- Should never be reused, even if a field is deleted.
+- Changing or reusing field numbers can break backward compatibility.
+
+**Common Protobuf Data Types**
+
+| Type | Meaning |
+| --- | --- |
+| `int32` / `int64` | Integers |
+| `string` | Text |
+| `bool` | True/false |
+| `bytes` | Raw binary data |
+
+**Code Generation Flow**
+
+1. Write the `.proto` file.
+2. Run the Protobuf compiler, usually `protoc`.
+3. Generate:
+   - Client code/stub.
+   - Server interface/base class.
+   - Message classes/types.
+4. Implement the server logic.
+5. Call the generated client method.
+
+**Mental Model**
+
+Think of gRPC as:
+
+> Strongly typed REST with auto-generated clients and binary efficiency.
+
+Think of `.proto` as:
+
+> The API contract shared by the client and server.
+
+**REST vs gRPC Quick Comparison**
+
+| Feature | REST | gRPC |
+| --- | --- | --- |
+| Format | JSON | Protobuf binary |
+| Speed | Usually slower | Usually faster |
+| Typing | Often weaker | Strong |
+| Streaming | Harder / less native | Native |
+| Contract | Optional, often OpenAPI | Required `.proto` |
+| Browser support | Native | Usually needs gRPC-Web/proxy |
+
+**Mini Example: End-to-End Thinking**
+
+1. Define the method and messages in `.proto`.
+2. Generate code from the `.proto` file.
+3. Call the generated client method:
+
+```python
+client.GetUser(user_id=1)
+```
+
+This looks like a local function call, but it actually sends a network request to the remote server.
+
+**Memory Anchors**
+
+- **gRPC = remote function calls**
+- **`.proto` = API contract**
+- **Protobuf = fast binary language**
+- **Stub = fake local function -> real remote call**
+
+**Active Recall Prompts**
+
+- What problem does gRPC solve compared to REST?
+- Why is Protobuf faster than JSON?
+- What does `rpc` define?
+- Why are field numbers important in `.proto`?
+- What is the role of the client stub?
+- When would you use streaming RPC instead of unary RPC?
 
 [Back to Contents](#contents)
 
