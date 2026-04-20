@@ -316,8 +316,20 @@ const ATAM = (() => {
 
   function isAtamDraftObject(x) {
     if (!x || typeof x !== 'object' || Array.isArray(x)) return false;
-    return ['systemContext', 'businessDrivers', 'constraints', 'assumptions',
-            'approaches', 'scenarios', 'findings'].some((k) => Object.prototype.hasOwnProperty.call(x, k));
+    return scoreAtamDraftObject(x) >= 4;
+  }
+
+  function scoreAtamDraftObject(x) {
+    if (!x || typeof x !== 'object' || Array.isArray(x)) return 0;
+    let score = 0;
+    if (typeof x.systemContext === 'string' && x.systemContext.trim() && x.systemContext.trim() !== '...') score += 2;
+    if (Array.isArray(x.businessDrivers) && x.businessDrivers.length) score += 2;
+    if (Array.isArray(x.constraints) && x.constraints.length) score += 1;
+    if (Array.isArray(x.assumptions) && x.assumptions.length) score += 1;
+    if (Array.isArray(x.approaches) && x.approaches.some((a) => a && (a.name || a.description))) score += 2;
+    if (Array.isArray(x.scenarios) && x.scenarios.some((s) => s && (s.qualityAttribute || s.stimulus || s.response))) score += 2;
+    if (Array.isArray(x.findings) && x.findings.some((f) => f && f.description)) score += 2;
+    return score;
   }
 
   function balancedJsonObjects(text) {
@@ -356,21 +368,26 @@ const ATAM = (() => {
   }
 
   function extractDraftJson(text) {
-    let s = String(text || '').trim();
-    const fenced = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
-    if (fenced) s = fenced[1].trim();
+    const s = String(text || '').trim();
     try {
       const parsed = JSON.parse(s);
       if (isAtamDraftObject(parsed)) return parsed;
     } catch (_) {}
 
     const candidates = balancedJsonObjects(s);
+    let best = null;
+    let bestScore = 0;
     for (let i = candidates.length - 1; i >= 0; i -= 1) {
       try {
         const parsed = JSON.parse(candidates[i]);
-        if (isAtamDraftObject(parsed)) return parsed;
+        const score = scoreAtamDraftObject(parsed);
+        if (score > bestScore) {
+          best = parsed;
+          bestScore = score;
+        }
       } catch (_) {}
     }
+    if (best && bestScore >= 4) return best;
     throw new Error('AI draft did not contain a parseable ATAM JSON object.');
   }
 

@@ -153,6 +153,12 @@ std::optional<std::string> GeminiClient::generate(const std::string& prompt,
                 },
             })},
         };
+        if (prompt.find("Your entire response must be exactly one valid JSON object") !=
+            std::string::npos) {
+            req["generationConfig"] = {
+                {"responseMimeType", "application/json"},
+            };
+        }
         if (!system_prompt.empty()) {
             req["systemInstruction"] = {
                 {"parts", json::array({{{"text", system_prompt}}})},

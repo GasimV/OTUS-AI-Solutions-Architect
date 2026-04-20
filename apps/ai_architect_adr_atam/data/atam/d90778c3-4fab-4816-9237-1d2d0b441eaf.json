@@ -1,45 +1,103 @@
 {
   "approaches": [
     {
-      "description": "Scale out behind a load balancer.",
-      "id": "e35a8a07-95a8-4717-8889-d32940df7b45",
-      "name": "Horizontal scaling of stateless services",
+      "description": "A routing layer that evaluates task complexity to decide whether to use a local lightweight model or a high-capacity cloud-based LLM.",
+      "id": "0404eddb-8894-494a-8345-938c4ae8a5b4",
+      "name": "Hybrid Inference Orchestration",
       "qualityAttributes": [
         "Performance",
-        "Availability"
+        "Availability",
+        "Cost-efficiency"
       ],
       "tactics": [
-        "replication",
-        "load balancing",
-        "circuit breakers"
+        "Local execution",
+        "Service delegation",
+        "Complexity-based routing"
+      ]
+    },
+    {
+      "description": "Backend services for user management, content storage, and LLM orchestration are deployed as independent, containerized services.",
+      "id": "35bd7f98-27cb-4a79-b396-bc4215b3e4ec",
+      "name": "Elastic Microservices Architecture",
+      "qualityAttributes": [
+        "Availability",
+        "Scalability"
+      ],
+      "tactics": [
+        "Horizontal scaling",
+        "Load balancing",
+        "Redundancy"
       ]
     }
   ],
   "assumptions": [
-    "Traffic grows linearly over the planning horizon.",
-    "Ops team size is fixed."
+    "Client devices have sufficient processing power to run lightweight, quantized local models.",
+    "External LLM providers offer stable RESTful API endpoints with acceptable uptime.",
+    "Users possess basic internet connectivity for synchronization and advanced AI features."
   ],
   "businessDrivers": [
-    "Grow to 10x current traffic without raising on-call burden.",
-    "Meet regulatory requirements for audit and data retention.",
-    "Keep cloud cost inside the approved envelope."
+    "Scalability to support a global user base of millions of students.",
+    "Cost-effective operation of high-intelligence AI services.",
+    "Enhanced student engagement through real-time, personalized feedback.",
+    "Compliance with strict data privacy regulations for educational environments."
   ],
   "constraints": [
-    "Must run in existing Kubernetes clusters.",
-    "Primary datastore is Postgres; changes are expensive."
+    "Must operate within a predefined budget for third-party LLM API consumption.",
+    "Must comply with international student data privacy laws (e.g., GDPR, COPPA).",
+    "Must support low-bandwidth or intermittently connected environments via local-first capabilities."
   ],
   "createdAt": "2026-04-20T03:32:31Z",
   "date": "2026-04-20",
   "findings": [
     {
-      "description": "Database connection pool size is sensitive for both performance and availability.",
-      "id": "f9d9e32a-e541-4430-8495-293a77159e06",
+      "description": "The decision to use local models improves availability and reduces cost but results in a degradation of reasoning quality compared to cloud LLMs.",
+      "id": "46c517c1-2590-4c75-909b-2ef78e70e56b",
+      "kind": "tradeoff-point",
+      "linkedAdrId": "",
+      "relatedApproaches": [],
+      "relatedQualityAttributes": [],
+      "relatedScenarios": [],
+      "severity": "H"
+    },
+    {
+      "description": "System latency is highly sensitive to the selected LLM model size and the network round-trip time to the cloud provider.",
+      "id": "b131f881-b09f-40fd-abb0-d9304a1ec439",
       "kind": "sensitivity-point",
       "linkedAdrId": "",
       "relatedApproaches": [],
       "relatedQualityAttributes": [],
       "relatedScenarios": [],
       "severity": "M"
+    },
+    {
+      "description": "High dependency on external LLM providers creates a single point of failure for the platform's core 'intelligence' feature.",
+      "id": "8850500c-eaec-4a8c-a480-43a131458854",
+      "kind": "risk",
+      "linkedAdrId": "",
+      "relatedApproaches": [],
+      "relatedQualityAttributes": [],
+      "relatedScenarios": [],
+      "severity": "H"
+    },
+    {
+      "description": "Operational expenditure is highly sensitive to the frequency of LLM API calls per user session.",
+      "id": "4669b79e-c1ae-4adb-8260-94f4691be263",
+      "kind": "sensitivity-point",
+      "linkedAdrId": "",
+      "relatedApproaches": [],
+      "relatedQualityAttributes": [],
+      "relatedScenarios": [],
+      "severity": "H"
+    },
+    {
+      "description": "The use of microservices for content delivery and user management ensures that user data management can scale independently of AI processing.",
+      "id": "bce732bd-1885-4146-93bd-7f092c43a5be",
+      "kind": "non-risk",
+      "linkedAdrId": "",
+      "relatedApproaches": [],
+      "relatedQualityAttributes": [],
+      "relatedScenarios": [],
+      "severity": "L"
     }
   ],
   "id": "d90778c3-4fab-4816-9237-1d2d0b441eaf",
@@ -48,29 +106,70 @@
       "author": "architect",
       "note": "created",
       "timestamp": "2026-04-20T03:32:31Z"
+    },
+    {
+      "author": "architect",
+      "note": "edit",
+      "timestamp": "2026-04-20T04:08:55Z"
     }
   ],
   "scenarios": [
     {
-      "artifact": "query API",
+      "artifact": "LLM Orchestrator",
       "difficulty": "M",
-      "environment": "Production at 2x current peak load",
-      "id": "5ce33d58-01d3-4921-a690-828ba197ea19",
+      "environment": "Peak usage period",
+      "id": "5c140974-e54c-470b-ace5-e7cefd04e8c6",
       "importance": "H",
       "qualityAttribute": "Performance",
-      "response": "returns a result",
-      "responseMeasure": "p95 < 300 ms",
-      "stimulus": "submits a standard query at peak hours",
-      "stimulusSource": "End user"
+      "response": "System routes request to cloud LLM and delivers content",
+      "responseMeasure": "End-to-end latency is less than 2 seconds",
+      "stimulus": "Request for a complex adaptive quiz generation",
+      "stimulusSource": "Student User"
+    },
+    {
+      "artifact": "Inference Router",
+      "difficulty": "H",
+      "environment": "Normal operation",
+      "id": "f6f6dfb8-6be8-4503-aee8-bce950105729",
+      "importance": "H",
+      "qualityAttribute": "Availability",
+      "response": "System automatically falls back to local lightweight model execution",
+      "responseMeasure": "System remains operational for basic learning tasks with 100% uptime",
+      "stimulus": "Complete API outage or service degradation",
+      "stimulusSource": "Cloud LLM Provider"
+    },
+    {
+      "artifact": "Backend API Gateway",
+      "difficulty": "M",
+      "environment": "Scaling event",
+      "id": "9c634b5f-dff4-4b6f-bf3a-b2ae081cff6f",
+      "importance": "M",
+      "qualityAttribute": "Performance",
+      "response": "Auto-scaling triggers to provision additional container instances",
+      "responseMeasure": "Average response time does not increase by more than 20%",
+      "stimulus": "Sudden influx of 100,000 concurrent users",
+      "stimulusSource": "System Load"
+    },
+    {
+      "artifact": "Local Client Application",
+      "difficulty": "H",
+      "environment": "Client-side/Offline",
+      "id": "08a9c445-804d-4d0a-8afd-03ab7d561556",
+      "importance": "H",
+      "qualityAttribute": "Availability",
+      "response": "Application switches to local-first mode using cached data and local models",
+      "responseMeasure": "Current lesson module remains interactive and functional",
+      "stimulus": "Loss of internet connectivity",
+      "stimulusSource": "Network Interface"
     }
   ],
   "status": "draft",
-  "systemContext": "Summarize the system under evaluation in 2–4 sentences: what it does, who uses it, the main external interfaces, and the architectural style.",
+  "systemContext": "The system is an AI-powered personalized learning platform that provides adaptive lessons, quizzes, and feedback to millions of students. It utilizes a hybrid architectural approach, combining local-first client capabilities with cloud-based Large Language Model (LLM) orchestration. The platform interfaces with student devices, external LLM APIs, and content management services to deliver real-time educational content.",
   "tags": [
     "template"
   ],
   "title": "Architecture Tradeoff Analysis for a Local-First AI Assistant with Optional LLM Integration",
-  "updatedAt": "2026-04-20T03:32:31Z",
+  "updatedAt": "2026-04-20T04:08:55Z",
   "utilityTree": [
     {
       "children": [
