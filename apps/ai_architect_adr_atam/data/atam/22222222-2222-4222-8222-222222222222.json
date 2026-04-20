@@ -1,0 +1,80 @@
+{
+  "id": "22222222-2222-4222-8222-222222222222",
+  "title": "Q2 ATAM review — order-service platform",
+  "date": "2026-03-15",
+  "status": "in-progress",
+  "systemContext": "Order service handles checkout, payment authorization, and order lifecycle. Split into API, workflow engine, and projections DB.",
+  "businessDrivers": [
+    "Support 2x peak on Black Friday without manual capacity bumps.",
+    "Keep checkout success rate above 99.5%."
+  ],
+  "constraints": [
+    "Cannot change payment vendor in this cycle.",
+    "Must stay inside current Postgres instance class."
+  ],
+  "assumptions": [
+    "Peak traffic is 3x baseline for at most 6 hours."
+  ],
+  "approaches": [
+    {
+      "id": "a-1", "name": "Async workflow with retries",
+      "description": "Durable queue between API and workflow engine for backpressure.",
+      "tactics": ["throttling", "bulkheads", "retry with jitter"],
+      "qualityAttributes": ["Availability", "Performance"]
+    }
+  ],
+  "utilityTree": [
+    { "id": "qa-perf", "name": "Performance",
+      "children": [
+        { "id": "qa-perf-lat", "name": "Latency", "scenarios": ["s-1"] },
+        { "id": "qa-perf-tp", "name": "Throughput" }
+      ] },
+    { "id": "qa-avail", "name": "Availability",
+      "children": [{ "id": "qa-avail-up", "name": "Uptime", "scenarios": ["s-2"] }] }
+  ],
+  "scenarios": [
+    {
+      "id": "s-1", "qualityAttribute": "Performance",
+      "stimulusSource": "Shopper", "stimulus": "submits checkout",
+      "environment": "Black Friday peak", "artifact": "Checkout API",
+      "response": "returns confirmation", "responseMeasure": "p95 <= 800 ms",
+      "importance": "H", "difficulty": "M"
+    },
+    {
+      "id": "s-2", "qualityAttribute": "Availability",
+      "stimulusSource": "Payment vendor", "stimulus": "has a 5-minute outage",
+      "environment": "Production", "artifact": "Order workflow",
+      "response": "orders queued, retried after recovery",
+      "responseMeasure": "0 lost orders, < 5 min delay once vendor recovers",
+      "importance": "H", "difficulty": "H"
+    }
+  ],
+  "findings": [
+    {
+      "id": "f-1", "kind": "risk",
+      "description": "Single Postgres writer is a bottleneck at 3x load.",
+      "severity": "H", "relatedScenarios": ["s-1"]
+    },
+    {
+      "id": "f-2", "kind": "sensitivity-point",
+      "description": "Retry-with-jitter parameters are sensitive for availability at peak.",
+      "severity": "M", "relatedScenarios": ["s-2"]
+    },
+    {
+      "id": "f-3", "kind": "tradeoff-point",
+      "description": "Throughput vs. consistency: async workflow trades eventual order state visibility for capacity.",
+      "severity": "M", "relatedQualityAttributes": ["Performance", "Consistency"]
+    },
+    {
+      "id": "f-4", "kind": "non-risk",
+      "description": "Read throughput via projections is already headroom-healthy.",
+      "severity": "L"
+    }
+  ],
+  "tags": ["order", "platform"],
+  "revisions": [
+    { "timestamp": "2026-03-15T10:00:00Z", "author": "architect", "note": "created" }
+  ],
+  "createdAt": "2026-03-15T10:00:00Z",
+  "updatedAt": "2026-03-15T10:00:00Z"
+}

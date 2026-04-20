@@ -1,0 +1,49 @@
+{
+  "description": "ATAM session focused on an AI/LLM platform.",
+  "systemContext": "LLM-serving platform with a gateway, model runners, a vector store, and a control plane.",
+  "businessDrivers": [
+    "Predictable response latency under bursty load.",
+    "Cost per 1k tokens stays below target.",
+    "Regulatory: keep sensitive prompts on-prem."
+  ],
+  "constraints": [
+    "Limited GPU fleet; no autoscale outside business hours.",
+    "All prompts must be retained for 30 days for audit."
+  ],
+  "approaches": [
+    {
+      "name": "Tiered routing",
+      "description": "Small/fast model for simple prompts, large model for complex ones.",
+      "qualityAttributes": ["Performance", "Cost"],
+      "tactics": ["resource management", "schedulable tasks"]
+    }
+  ],
+  "utilityTree": [
+    { "name": "Performance", "children": [
+        { "name": "Latency" }, { "name": "Throughput under burst" }] },
+    { "name": "Cost" },
+    { "name": "Privacy" },
+    { "name": "Accuracy" }
+  ],
+  "scenarios": [
+    {
+      "qualityAttribute": "Performance",
+      "stimulus": "A user sends a 2k-token prompt",
+      "environment": "Production at peak hour",
+      "artifact": "LLM gateway",
+      "response": "streams first token",
+      "responseMeasure": "TTFT p95 < 800 ms",
+      "importance": "H", "difficulty": "H"
+    },
+    {
+      "qualityAttribute": "Cost",
+      "stimulus": "Daily volume doubles",
+      "environment": "Steady state",
+      "artifact": "Model runners",
+      "response": "keep USD/1k tokens below budget",
+      "responseMeasure": "cost/1k <= target - 15%",
+      "importance": "H", "difficulty": "M"
+    }
+  ],
+  "tags": ["ai", "platform"]
+}

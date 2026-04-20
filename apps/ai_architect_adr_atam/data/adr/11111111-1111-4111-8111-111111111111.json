@@ -1,0 +1,32 @@
+{
+  "id": "11111111-1111-4111-8111-111111111111",
+  "slug": "adopt-postgres-as-primary-datastore",
+  "number": 1,
+  "title": "Adopt Postgres as primary datastore",
+  "status": "accepted",
+  "date": "2026-02-10",
+  "context": "We need an operationally mature relational database with strong ecosystem support for the platform team, which has only Postgres experience.",
+  "decision": "Use Postgres 16 in managed form as the primary OLTP store for all services. Cross-service access goes through each service's API, not directly to another service's schema.",
+  "consequences": "Easier onboarding for engineers; strong tooling. We accept Postgres-specific SQL. We need to plan partitioning ahead of 10x growth.",
+  "alternatives": [
+    "MySQL — rejected due to less rich indexing and JSON support.",
+    "Managed NoSQL — rejected, most workloads are relational."
+  ],
+  "assumptions": [
+    "Cloud provider's managed Postgres SLA is acceptable."
+  ],
+  "risks": [
+    "Single-region deployment limits RTO on regional outage."
+  ],
+  "qualityAttributes": ["Modifiability", "Availability"],
+  "requirements": ["All services must expose an API rather than direct DB access."],
+  "stakeholders": ["Platform", "Security"],
+  "tags": ["storage", "platform"],
+  "links": [],
+  "revisions": [
+    { "timestamp": "2026-02-10T09:00:00Z", "author": "architect", "note": "created" },
+    { "timestamp": "2026-02-12T15:30:00Z", "author": "architect", "note": "accepted after RFC review" }
+  ],
+  "createdAt": "2026-02-10T09:00:00Z",
+  "updatedAt": "2026-02-12T15:30:00Z"
+}

@@ -1,0 +1,12 @@
+{
+  "description": "Minimal ADR for small decisions — just context, decision, consequences.",
+  "status": "proposed",
+  "context": "Short context.",
+  "decision": "Short decision.",
+  "consequences": "Short consequences.",
+  "alternatives": [],
+  "assumptions": [],
+  "risks": [],
+  "qualityAttributes": [],
+  "tags": ["lightweight"]
+}

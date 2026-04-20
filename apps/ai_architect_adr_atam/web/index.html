@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>AI-Architect · ADR & ATAM</title>
+<link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">AI-Architect <span class="muted">· ADR & ATAM</span></div>
+  <nav class="tabs">
+    <button class="tab active" data-view="dashboard">Dashboard</button>
+    <button class="tab" data-view="adr">ADR</button>
+    <button class="tab" data-view="atam">ATAM</button>
+  </nav>
+  <div class="ai-status" id="ai-status" title="Click to configure AI">
+    <span class="dot" id="ai-dot"></span><span id="ai-label">AI: checking…</span>
+  </div>
+</header>
+
+<main>
+  <!-- DASHBOARD VIEW -->
+  <section class="view" id="view-dashboard">
+    <div class="panel">
+      <h2>Recent ADRs</h2>
+      <div class="toolbar">
+        <input id="dash-adr-search" placeholder="search title/context…" />
+        <button class="primary" id="btn-new-adr">+ New ADR</button>
+      </div>
+      <ul class="record-list" id="dash-adr-list"></ul>
+    </div>
+    <div class="panel">
+      <h2>Recent ATAM sessions</h2>
+      <div class="toolbar">
+        <input id="dash-atam-search" placeholder="search title/context…" />
+        <button class="primary" id="btn-new-atam">+ New ATAM</button>
+      </div>
+      <ul class="record-list" id="dash-atam-list"></ul>
+    </div>
+    <div class="panel">
+      <h2>AI availability</h2>
+      <div id="ai-detail" class="ai-detail">loading…</div>
+    </div>
+  </section>
+
+  <!-- ADR VIEW -->
+  <section class="view hidden" id="view-adr">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <strong>ADR list</strong>
+        <button class="primary" id="adr-new">+ New</button>
+      </div>
+      <input id="adr-filter" placeholder="filter title/tag/QA…" />
+      <select id="adr-status-filter">
+        <option value="">any status</option>
+        <option value="proposed">proposed</option>
+        <option value="accepted">accepted</option>
+        <option value="rejected">rejected</option>
+        <option value="deprecated">deprecated</option>
+        <option value="superseded">superseded</option>
+      </select>
+      <ul id="adr-list" class="record-list"></ul>
+    </aside>
+    <section class="editor">
+      <div class="editor-empty" id="adr-empty">Select an ADR or create a new one.</div>
+      <form id="adr-form" class="hidden">
+        <div class="form-row">
+          <label>ADR #</label><input id="adr-number" type="number" readonly />
+          <label>Status</label>
+          <select id="adr-status">
+            <option>proposed</option>
+            <option>accepted</option>
+            <option>rejected</option>
+            <option>deprecated</option>
+            <option>superseded</option>
+          </select>
+          <label>Date</label><input id="adr-date" type="date" />
+        </div>
+        <label>Title</label><input id="adr-title" placeholder="A short decision title" />
+        <label>Tags (comma-separated)</label><input id="adr-tags" />
+        <label>Quality attributes (comma-separated)</label><input id="adr-qas" />
+        <label>Stakeholders (comma-separated)</label><input id="adr-stakeholders" />
+        <label>Related requirements (one per line)</label><textarea id="adr-requirements" rows="3"></textarea>
+
+        <div class="section">
+          <div class="section-head">
+            <label>Context</label>
+            <button type="button" class="mini" data-ai="summarize-context">AI summarize</button>
+            <button type="button" class="mini" data-ai="improve:context">AI improve</button>
+          </div>
+          <textarea id="adr-context" rows="5"></textarea>
+        </div>
+
+        <div class="section">
+          <div class="section-head">
+            <label>Decision</label>
+            <button type="button" class="mini" data-ai="improve:decision">AI improve</button>
+          </div>
+          <textarea id="adr-decision" rows="5"></textarea>
+        </div>
+
+        <div class="section">
+          <div class="section-head">
+            <label>Consequences</label>
+            <button type="button" class="mini" data-ai="suggest-consequences">AI suggest</button>
+            <button type="button" class="mini" data-ai="improve:consequences">AI improve</button>
+          </div>
+          <textarea id="adr-consequences" rows="4"></textarea>
+        </div>
+
+        <div class="section">
+          <div class="section-head">
+            <label>Alternatives considered (one per line)</label>
+            <button type="button" class="mini" data-ai="suggest-alternatives">AI suggest</button>
+          </div>
+          <textarea id="adr-alternatives" rows="4"></textarea>
+        </div>
+
+        <div class="section">
+          <div class="section-head">
+            <label>Risks (one per line)</label>
+            <button type="button" class="mini" data-ai="suggest-risks">AI suggest</button>
+          </div>
+          <textarea id="adr-risks" rows="3"></textarea>
+        </div>
+
+        <label>Assumptions (one per line)</label>
+        <textarea id="adr-assumptions" rows="3"></textarea>
+
+        <label>Links — one per line, <code>relation:targetId</code></label>
+        <textarea id="adr-links" rows="2" placeholder="supersedes:0b1a…&#10;related:d2ef…"></textarea>
+
+        <div class="form-footer">
+          <button type="button" id="adr-save" class="primary">Save</button>
+          <button type="button" id="adr-reuse">Find similar</button>
+          <button type="button" id="adr-preview">Preview markdown</button>
+          <button type="button" id="adr-export-md">Export .md</button>
+          <button type="button" id="adr-export-json">Export .json</button>
+          <button type="button" id="adr-delete" class="danger">Delete</button>
+        </div>
+      </form>
+      <div id="adr-reuse-box" class="reuse-box hidden"></div>
+      <pre id="adr-preview-box" class="preview hidden"></pre>
+    </section>
+    <aside class="aipanel">
+      <h3>AI assist</h3>
+      <p class="muted">Draft an ADR from notes. The LLM must be reachable.</p>
+      <textarea id="ai-adr-notes" rows="6" placeholder="Jot rough notes, constraints, forces…"></textarea>
+      <div class="form-row">
+        <button id="ai-draft-adr" class="primary">Draft</button>
+        <button id="ai-apply-draft">Apply to editor</button>
+      </div>
+      <pre id="ai-adr-output" class="ai-output"></pre>
+    </aside>
+  </section>
+
+  <!-- ATAM VIEW -->
+  <section class="view hidden" id="view-atam">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <strong>ATAM sessions</strong>
+        <button class="primary" id="atam-new">+ New</button>
+      </div>
+      <input id="atam-filter" placeholder="filter…" />
+      <ul id="atam-list" class="record-list"></ul>
+    </aside>
+    <section class="editor">
+      <div class="editor-empty" id="atam-empty">Select a session or create a new one.</div>
+      <form id="atam-form" class="hidden">
+        <div class="form-row">
+          <label>Status</label>
+          <select id="atam-status">
+            <option>draft</option><option>in-progress</option><option>final</option>
+          </select>
+          <label>Date</label><input id="atam-date" type="date" />
+        </div>
+        <label>Title</label><input id="atam-title" />
+        <label>Tags (comma-separated)</label><input id="atam-tags" />
+        <label>System context</label>
+        <textarea id="atam-system-context" rows="3"></textarea>
+        <label>Business drivers (one per line)</label>
+        <textarea id="atam-drivers" rows="3"></textarea>
+        <label>Constraints (one per line)</label>
+        <textarea id="atam-constraints" rows="2"></textarea>
+        <label>Assumptions (one per line)</label>
+        <textarea id="atam-assumptions" rows="2"></textarea>
+
+        <div class="section">
+          <div class="section-head"><strong>Architectural approaches</strong>
+            <button type="button" class="mini" id="atam-add-approach">+ Add</button>
+          </div>
+          <div id="atam-approaches"></div>
+        </div>
+
+        <div class="section">
+          <div class="section-head"><strong>Quality attribute scenarios</strong>
+            <button type="button" class="mini" id="atam-add-scenario">+ Add</button>
+            <button type="button" class="mini" id="atam-ai-scenario">AI suggest</button>
+            <button type="button" class="mini" id="atam-find-similar-scenarios">Find similar</button>
+          </div>
+          <div id="atam-scenarios"></div>
+        </div>
+
+        <div class="section">
+          <div class="section-head"><strong>Findings (risks / non-risks / sensitivity / tradeoff)</strong>
+            <button type="button" class="mini" id="atam-add-finding">+ Add</button>
+            <button type="button" class="mini" id="atam-infer-tradeoffs">AI infer S/T</button>
+          </div>
+          <div id="atam-findings"></div>
+        </div>
+
+        <div class="form-footer">
+          <button type="button" id="atam-save" class="primary">Save</button>
+          <button type="button" id="atam-preview">Preview markdown</button>
+          <button type="button" id="atam-export-md">Export .md</button>
+          <button type="button" id="atam-export-json">Export .json</button>
+          <button type="button" id="atam-summary">AI summary</button>
+          <button type="button" id="atam-adr-candidates">AI → ADR candidates</button>
+          <button type="button" id="atam-delete" class="danger">Delete</button>
+        </div>
+      </form>
+      <pre id="atam-preview-box" class="preview hidden"></pre>
+      <pre id="atam-ai-output" class="ai-output hidden"></pre>
+    </section>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+<dialog id="ai-config-dialog">
+  <form method="dialog">
+    <h3>AI settings</h3>
+    <label>Host</label><input id="cfg-host" />
+    <label>Port</label><input id="cfg-port" type="number" />
+    <label>Model</label><input id="cfg-model" />
+    <label><input type="checkbox" id="cfg-enabled" /> Enable AI features</label>
+    <menu>
+      <button value="save" class="primary" id="cfg-save">Save</button>
+      <button value="cancel">Cancel</button>
+    </menu>
+  </form>
+</dialog>
+
+<script src="/js/api.js"></script>
+<script src="/js/common.js"></script>
+<script src="/js/dashboard.js"></script>
+<script src="/js/adr.js"></script>
+<script src="/js/atam.js"></script>
+<script src="/js/ai_panel.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>

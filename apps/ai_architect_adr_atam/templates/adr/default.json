@@ -1,0 +1,20 @@
+{
+  "description": "Classic Nygard-style ADR with extended fields for QA and risks.",
+  "status": "proposed",
+  "context": "Describe the forces at play: business goals, system constraints, prior decisions this one interacts with, and why a choice must be made now.",
+  "decision": "State the chosen option in one or two sentences, plus the concrete shape of the decision (components, interfaces, policies).",
+  "consequences": "List what becomes easier, what becomes harder, and what follow-up work this decision creates.",
+  "alternatives": [
+    "Alternative A — one-line description and why it was rejected.",
+    "Alternative B — one-line description and why it was rejected."
+  ],
+  "assumptions": [
+    "Assumption that holds for this decision to remain valid."
+  ],
+  "risks": [
+    "Risk statement — what could go wrong and the early signal."
+  ],
+  "qualityAttributes": ["Performance", "Availability"],
+  "stakeholders": ["Engineering", "Product", "Security"],
+  "tags": ["platform"]
+}

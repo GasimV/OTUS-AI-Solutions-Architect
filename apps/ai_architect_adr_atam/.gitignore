@@ -1,0 +1,16 @@
+build/
+out/
+cmake-build-*/
+*.obj
+*.o
+*.exe
+*.exp
+*.lib
+*.pdb
+.vs/
+.vscode/
+CMakeCache.txt
+CMakeFiles/
+exports/*.md
+exports/*.json
+!exports/.gitkeep

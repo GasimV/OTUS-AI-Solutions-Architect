@@ -1,0 +1,24 @@
+{
+  "description": "ADR template tuned for LLM-serving systems (latency, cost, isolation).",
+  "status": "proposed",
+  "context": "Describe the LLM-serving use case: expected QPS, payload size, latency budget, privacy requirements, model class, deployment environment.",
+  "decision": "State the serving topology, model choice, scaling strategy, and fallback posture.",
+  "consequences": "Cover cost envelope, p50/p95 latency, capacity ceiling, operational overhead, security boundaries.",
+  "alternatives": [
+    "Remote hosted API — simplest, but cost/privacy/cold-start.",
+    "Self-hosted GPU cluster — most flexible, but ops overhead.",
+    "CPU inference with quantized model — cheap, but quality/latency tradeoff."
+  ],
+  "assumptions": [
+    "Target p95 latency budget.",
+    "Peak concurrent request count.",
+    "Model update cadence."
+  ],
+  "risks": [
+    "Model drift changes output shape and breaks downstream parsing.",
+    "Cost spikes under unexpected traffic."
+  ],
+  "qualityAttributes": ["Performance", "Cost", "Privacy", "Availability"],
+  "stakeholders": ["AI platform", "SRE", "Security", "Product"],
+  "tags": ["ai", "llm", "serving"]
+}

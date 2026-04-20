@@ -1,0 +1,59 @@
+{
+  "description": "Standard ATAM session skeleton with the canonical quality attributes and starter scenarios.",
+  "systemContext": "Summarize the system under evaluation in 2–4 sentences: what it does, who uses it, the main external interfaces, and the architectural style.",
+  "businessDrivers": [
+    "Grow to 10x current traffic without raising on-call burden.",
+    "Meet regulatory requirements for audit and data retention.",
+    "Keep cloud cost inside the approved envelope."
+  ],
+  "constraints": [
+    "Must run in existing Kubernetes clusters.",
+    "Primary datastore is Postgres; changes are expensive."
+  ],
+  "assumptions": [
+    "Traffic grows linearly over the planning horizon.",
+    "Ops team size is fixed."
+  ],
+  "approaches": [
+    {
+      "name": "Horizontal scaling of stateless services",
+      "description": "Scale out behind a load balancer.",
+      "qualityAttributes": ["Performance", "Availability"],
+      "tactics": ["replication", "load balancing", "circuit breakers"]
+    }
+  ],
+  "utilityTree": [
+    { "name": "Performance", "description": "Throughput and latency under peak load",
+      "children": [
+        { "name": "Latency", "description": "User-perceived response time" },
+        { "name": "Throughput", "description": "Requests per second" }
+      ]},
+    { "name": "Availability", "description": "Uptime and graceful degradation",
+      "children": [
+        { "name": "Uptime", "description": "Yearly availability target" }
+      ]},
+    { "name": "Security", "description": "Confidentiality, integrity, authn/z" },
+    { "name": "Modifiability", "description": "Ease of change" }
+  ],
+  "scenarios": [
+    {
+      "qualityAttribute": "Performance",
+      "stimulusSource": "End user",
+      "stimulus": "submits a standard query at peak hours",
+      "environment": "Production at 2x current peak load",
+      "artifact": "query API",
+      "response": "returns a result",
+      "responseMeasure": "p95 < 300 ms",
+      "importance": "H",
+      "difficulty": "M"
+    }
+  ],
+  "findings": [
+    {
+      "kind": "sensitivity-point",
+      "description": "Database connection pool size is sensitive for both performance and availability.",
+      "severity": "M"
+    }
+  ],
+  "tags": ["template"]
+}
