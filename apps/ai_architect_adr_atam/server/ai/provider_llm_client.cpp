@@ -14,8 +14,8 @@ namespace {
 std::string normalize_provider(std::string provider) {
     std::transform(provider.begin(), provider.end(), provider.begin(),
                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-    if (provider == "gemini") return provider;
-    return "ollama";
+    if (provider == "ollama") return provider;
+    return "gemini";
 }
 
 }  // namespace

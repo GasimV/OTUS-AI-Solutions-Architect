@@ -30,7 +30,7 @@ struct AppConfig {
     std::string host = "127.0.0.1";
     int port = 8090;
     fs::path app_root;  // resolved at runtime
-    std::string ai_provider = "ollama";
+    std::string ai_provider = "gemini";
     std::string ollama_host = "127.0.0.1";
     int ollama_port = 11434;
     std::string ollama_model = "gemma4:e2b";
@@ -55,8 +55,8 @@ int env_int_or(const char* name, int def) {
 std::string normalize_provider(std::string provider) {
     std::transform(provider.begin(), provider.end(), provider.begin(),
                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-    if (provider == "gemini") return provider;
-    return "ollama";
+    if (provider == "ollama") return provider;
+    return "gemini";
 }
 
 void set_env_if_absent(const std::string& name, const std::string& value) {

@@ -349,7 +349,7 @@ docker stop adr-atam
 | `--host HOST` | `127.0.0.1` | Listen address |
 | `--port N` | `8090` | Listen port |
 | `--root DIR` | auto-detected | Base dir (must contain `web/`, `templates/`, `data/`) |
-| `--ai-provider NAME` | `ollama` | LLM provider: `ollama` or `gemini` |
+| `--ai-provider NAME` | `gemini` | LLM provider: `gemini` or `ollama` |
 | `--ollama-host HOST` | `127.0.0.1` | Ollama HTTP host |
 | `--ollama-port N` | `11434` | Ollama HTTP port |
 | `--ollama-model NAME` | `gemma4:e2b` | Default model |

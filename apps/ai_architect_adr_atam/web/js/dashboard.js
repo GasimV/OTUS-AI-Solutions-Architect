@@ -56,7 +56,7 @@ const Dashboard = (() => {
         ? `${st.apiHost || 'generativelanguage.googleapis.com'}:${st.apiPort || 443}`
         : `${st.host || '127.0.0.1'}:${st.port || 11434}`;
       const lines = [
-        `<div><span class="k">Provider</span> ${escapeHtml(st.provider || 'ollama')}</div>`,
+        `<div><span class="k">Provider</span> ${escapeHtml(st.provider || 'gemini')}</div>`,
         `<div><span class="k">Enabled</span> ${st.enabled}</div>`,
         `<div><span class="k">Reachable</span> ${st.reachable}</div>`,
         `<div><span class="k">Active model</span> ${escapeHtml(st.activeModel || '')}</div>`,

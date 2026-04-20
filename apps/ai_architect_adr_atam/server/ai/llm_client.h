@@ -7,7 +7,7 @@
 namespace adra::ai {
 
 struct LlmConfig {
-    std::string provider = "ollama";
+    std::string provider = "gemini";
     std::string host = "127.0.0.1";
     int port = 11434;
     std::string model = "gemma4:e2b";

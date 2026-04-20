@@ -1,13 +1,13 @@
 const AiPanel = (() => {
   const { $ } = ui;
   const defaultModels = {
-    ollama: 'gemma4:e2b',
     gemini: 'gemma-4-26b-a4b-it',
+    ollama: 'gemma4:e2b',
   };
-  let lastProvider = 'ollama';
+  let lastProvider = 'gemini';
 
   function syncProviderFields() {
-    const provider = $('#cfg-provider').value || 'ollama';
+    const provider = $('#cfg-provider').value || 'gemini';
     const isGemini = provider === 'gemini';
     $('#cfg-host').disabled = isGemini;
     $('#cfg-port').disabled = isGemini;
@@ -34,11 +34,11 @@ const AiPanel = (() => {
         dot.className = 'dot err'; label.textContent = 'AI: offline';
       }
       // pre-fill config dialog
-      const provider = st.provider || 'ollama';
+      const provider = st.provider || 'gemini';
       $('#cfg-provider').value = provider;
       $('#cfg-host').value = st.host || '127.0.0.1';
       $('#cfg-port').value = st.port || 11434;
-      $('#cfg-model').value = st.activeModel || defaultModels[provider] || defaultModels.ollama;
+      $('#cfg-model').value = st.activeModel || defaultModels[provider] || defaultModels.gemini;
       $('#cfg-enabled').checked = !!st.enabled;
       lastProvider = provider;
       syncProviderFields();
@@ -55,7 +55,7 @@ const AiPanel = (() => {
 
   async function save() {
     const cfg = {
-      provider: $('#cfg-provider').value || 'ollama',
+      provider: $('#cfg-provider').value || 'gemini',
       host: $('#cfg-host').value,
       port: parseInt($('#cfg-port').value || '11434', 10),
       model: $('#cfg-model').value,
