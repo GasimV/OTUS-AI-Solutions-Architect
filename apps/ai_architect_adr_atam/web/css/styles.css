@@ -84,6 +84,7 @@ input, select, textarea, button {
   background: var(--panel2); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px;
 }
 input:focus, select:focus, textarea:focus { outline: 1px solid var(--accent); }
+input:disabled { opacity: 0.55; cursor: not-allowed; }
 textarea { resize: vertical; min-height: 60px; width: 100%; }
 label { display: block; color: var(--muted); margin-top: 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.02em; }
 form { display: flex; flex-direction: column; gap: 4px; }

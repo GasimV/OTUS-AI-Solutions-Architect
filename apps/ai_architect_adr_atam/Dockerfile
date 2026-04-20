@@ -9,7 +9,8 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential \
         cmake \
-        ca-certificates && \
+        ca-certificates \
+        libssl-dev && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
@@ -31,7 +32,8 @@ FROM ubuntu:24.04 AS runtime
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         libstdc++6 \
-        ca-certificates && \
+        ca-certificates \
+        libssl3t64 && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

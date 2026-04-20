@@ -1,0 +1,49 @@
+{
+  "alternatives": [
+    "Alternative A — one-line description and why it was rejected.",
+    "Alternative B — one-line description and why it was rejected."
+  ],
+  "assumptions": [
+    "Assumption that holds for this decision to remain valid."
+  ],
+  "consequences": "List what becomes easier, what becomes harder, and what follow-up work this decision creates.",
+  "context": "Describe the forces at play: business goals, system constraints, prior decisions this one interacts with, and why a choice must be made now.",
+  "createdAt": "2026-04-20T02:12:10Z",
+  "date": "2026-04-20",
+  "decision": "State the chosen option in one or two sentences, plus the concrete shape of the decision (components, interfaces, policies).",
+  "id": "f0904019-9905-4263-af08-d9414cf1c96a",
+  "links": [],
+  "number": 2,
+  "qualityAttributes": [
+    "Performance",
+    "Availability"
+  ],
+  "requirements": [],
+  "revisions": [
+    {
+      "author": "architect",
+      "note": "created",
+      "timestamp": "2026-04-20T02:12:10Z"
+    },
+    {
+      "author": "architect",
+      "note": "edit",
+      "timestamp": "2026-04-20T02:30:02Z"
+    }
+  ],
+  "risks": [
+    "Risk statement — what could go wrong and the early signal."
+  ],
+  "slug": "use-kubernetes-for-genai-based-system",
+  "stakeholders": [
+    "Engineering",
+    "Product",
+    "Security"
+  ],
+  "status": "proposed",
+  "tags": [
+    "platform"
+  ],
+  "title": "Use Kubernetes for GenAI-based System",
+  "updatedAt": "2026-04-20T02:30:02Z"
+}

@@ -5,12 +5,12 @@
 Give a working software architect a single, local, offline-friendly workbench for
 two related artifacts that dominate day-to-day architecture work — **ADR**
 (Architecture Decision Records) and **ATAM** (Architecture Tradeoff Analysis
-Method) — with optional local-LLM assistance that *never* becomes a hard
-dependency.
+Method) — with optional LLM assistance that *never* becomes a hard dependency.
 
 The design choices below are optimized for:
 
-- **Local-first, offline by default.** No network calls leave the machine.
+- **Local-first, offline by default.** Ollama mode stays local; Gemini mode is
+  opt-in and calls Google's hosted API.
 - **Human-inspectable storage.** JSON files per artifact; diff in git; edit by hand.
 - **Small, boring tech.** Single-header HTTP server + single-header JSON, plain
   HTML/CSS/JS. Zero package manager, fast clean build.
@@ -40,7 +40,7 @@ The design choices below are optimized for:
 │          │         ┌──────┴───────┐    │       │             │
 │          │         │  LlmClient   │◀───┘       │             │
 │          │         │ (interface)  │            │             │
-│          │         │ OllamaClient │            │             │
+│          │         │ Provider LLM │            │             │
 │          │         └──────────────┘            │             │
 │   httplib.h (static+dynamic route table)       │             │
 └────────────────────────────────────────────────┴─────────────┘
@@ -54,7 +54,7 @@ The design choices below are optimized for:
 | **domain** | Pure data types and their JSON round-trip. | `server/domain/` |
 | **persistence** | `FileStore` primitive + one repository per aggregate. | `server/persistence/` |
 | **services** | Use-case orchestration, validation, search, reuse, export. | `server/services/` |
-| **ai** | Provider-neutral LLM client interface + Ollama implementation + architect-level prompts. | `server/ai/` |
+| **ai** | Provider-neutral LLM client interface + Ollama/Gemini implementations + architect-level prompts. | `server/ai/` |
 | **http** | REST routing, DTO shaping. | `server/http/api_routes.cpp` |
 | **main** | Wiring and configuration. | `server/main.cpp` |
 | **web** | Browser UI that consumes the API. | `web/` |
@@ -111,7 +111,7 @@ attributes. Runs on every saved artifact and is used by:
 - **"Find similar scenarios"** on the ATAM editor.
 
 It's intentionally lightweight — no embeddings, no index — so it works without
-ever touching Ollama.
+ever touching an LLM provider.
 
 ## Optional LLM integration
 
@@ -131,12 +131,17 @@ All AI features go through `AiService`, which composes architect-specific
 prompts and returns `AiResult{ok,text,error}`. The UI shows failures as
 toasts; nothing blocks.
 
-### Ollama specifics
+### Provider specifics
 
 - `GET /api/tags` is used to detect reachability and whether the configured
-  model name appears in the inventory.
-- `POST /api/generate` with `{"stream": false}` is used for one-shot generation.
-- Connect timeout is short (3s) so a missing Ollama is noticed quickly; read
+  Ollama model name appears in the inventory.
+- Ollama uses `POST /api/generate` with `{"stream": false}` for one-shot
+  generation.
+- Gemini uses `GET /v1beta/models` for reachability/model checks and
+  `POST /v1beta/models/{model}:generateContent` for one-shot generation.
+  `GEMINI_API_KEY` is loaded from `.env` or the process environment and is not
+  returned by the API.
+- Connect timeout is short (3s) so a missing provider is noticed quickly; read
   timeout is long (120s) for actual generations.
 - Config can be changed at runtime via `POST /api/ai/config` — no restart.
 
@@ -196,7 +201,7 @@ directory per test.
 |---|---|---|
 | GET | `/api/status` | App + AI summary |
 | GET | `/api/ai/status` | Detailed AI status |
-| POST | `/api/ai/config` | Update LLM config (host/port/model/enabled) |
+| POST | `/api/ai/config` | Update LLM config (provider/host/port/model/enabled) |
 | GET | `/api/adr/templates` | List ADR templates |
 | GET | `/api/adr?q&status&tag&qa` | List ADRs with filters |
 | POST | `/api/adr` | Create (body: `{title, template, author}`) |

@@ -52,13 +52,20 @@ const Dashboard = (() => {
     try {
       const st = await api.get('/api/ai/status');
       const el = $('#ai-detail');
+      const endpoint = st.provider === 'gemini'
+        ? `${st.apiHost || 'generativelanguage.googleapis.com'}:${st.apiPort || 443}`
+        : `${st.host || '127.0.0.1'}:${st.port || 11434}`;
       const lines = [
+        `<div><span class="k">Provider</span> ${escapeHtml(st.provider || 'ollama')}</div>`,
         `<div><span class="k">Enabled</span> ${st.enabled}</div>`,
         `<div><span class="k">Reachable</span> ${st.reachable}</div>`,
         `<div><span class="k">Active model</span> ${escapeHtml(st.activeModel || '')}</div>`,
         `<div><span class="k">Model available</span> ${st.modelAvailable}</div>`,
-        `<div><span class="k">Host</span> ${escapeHtml(st.host)}:${st.port}</div>`,
+        `<div><span class="k">Endpoint</span> ${escapeHtml(endpoint)}</div>`,
       ];
+      if (st.provider === 'gemini') {
+        lines.push(`<div><span class="k">API key</span> ${st.apiKeyConfigured ? 'configured' : 'missing'}</div>`);
+      }
       if (st.availableModels && st.availableModels.length) {
         lines.push(`<div><span class="k">Models seen</span> ${st.availableModels.map(escapeHtml).join(', ')}</div>`);
       }

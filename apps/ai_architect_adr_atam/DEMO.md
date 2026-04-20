@@ -8,8 +8,9 @@ A 5-minute tour of the features. The app is at http://127.0.0.1:8090/ after
 - **Dashboard** shows "ADR-1: Adopt Postgres as primary datastore" and one
   ATAM session ("Q2 ATAM review — order-service platform") — these are the
   bundled samples under `data/`.
-- Top-right badge: **AI: ready (gemma4:e2b)** if Ollama is up, **AI: offline**
-  otherwise. Everything below works either way.
+- Top-right badge: **AI: ready (gemma4:e2b)** if Ollama is up, or the
+  configured Gemini model if `ADRA_LLM_PROVIDER=gemini`. **AI: offline** means
+  the app is still usable without generation.
 
 ## 1. Create an ADR from a template
 
@@ -24,7 +25,7 @@ Behind the scenes: `POST /api/adr` created `data/adr/<uuid>.json`; subsequent
 `PUT /api/adr/:id` rewrote it. The `revisions[]` array appended one entry each
 time.
 
-## 2. Use AI to draft and polish (requires Ollama)
+## 2. Use AI to draft and polish (requires Ollama or Gemini)
 
 1. In the right AI panel, paste notes:
 

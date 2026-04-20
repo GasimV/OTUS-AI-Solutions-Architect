@@ -1,5 +1,7 @@
 #include "http/api_routes.h"
 
+#include <algorithm>
+#include <cctype>
 #include <functional>
 #include <string>
 
@@ -36,11 +38,23 @@ std::string query_param(const httplib::Request& req, const char* key,
     return req.has_param(key) ? req.get_param_value(key) : def;
 }
 
+std::string normalize_provider(std::string provider) {
+    std::transform(provider.begin(), provider.end(), provider.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    if (provider == "gemini") return provider;
+    return "ollama";
+}
+
+std::string default_model_for_provider(const std::string& provider) {
+    return normalize_provider(provider) == "gemini" ? "gemma-4-26b-a4b-it" : "gemma4:e2b";
+}
+
 json ai_status_json(ai::AiService* ai) {
     if (!ai) return json{{"enabled", false}, {"reachable", false}};
     auto st = ai->client().check_status();
     const auto& cfg = ai->client().config();
     return json{
+        {"provider", cfg.provider},
         {"enabled", cfg.enabled},
         {"reachable", st.reachable},
         {"modelAvailable", st.model_available},
@@ -49,6 +63,9 @@ json ai_status_json(ai::AiService* ai) {
         {"error", st.error},
         {"host", cfg.host},
         {"port", cfg.port},
+        {"apiHost", cfg.api_host},
+        {"apiPort", cfg.api_port},
+        {"apiKeyConfigured", !cfg.api_key.empty()},
     };
 }
 
@@ -80,12 +97,17 @@ void register_routes(httplib::Server& svr, const ServerDeps& deps) {
         if (!deps.ai) return send_error(res, 503, "AI not configured");
         with_json_body(req, res, [&](const json& body) {
             auto cfg = deps.ai->client().config();
+            const auto previous_provider = cfg.provider;
+            if (body.contains("provider") && body["provider"].is_string())
+                cfg.provider = normalize_provider(body["provider"].get<std::string>());
             if (body.contains("host") && body["host"].is_string()) cfg.host = body["host"].get<std::string>();
             if (body.contains("port") && body["port"].is_number_integer()) cfg.port = body["port"].get<int>();
             if (body.contains("model") && body["model"].is_string()) cfg.model = body["model"].get<std::string>();
             if (body.contains("enabled") && body["enabled"].is_boolean()) cfg.enabled = body["enabled"].get<bool>();
             if (body.contains("readTimeoutSec") && body["readTimeoutSec"].is_number_integer())
                 cfg.read_timeout_sec = body["readTimeoutSec"].get<int>();
+            if (cfg.provider != previous_provider && !body.contains("model"))
+                cfg.model = default_model_for_provider(cfg.provider);
             deps.ai->client().update_config(cfg);
             send_json(res, 200, ai_status_json(deps.ai));
         });

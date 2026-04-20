@@ -32,7 +32,9 @@ set(ADR_ATAM_CORE_SOURCES
     server/services/atam_service.cpp
     server/services/export_service.cpp
     server/services/reuse_service.cpp
+    server/ai/gemini_client.cpp
     server/ai/ollama_client.cpp
+    server/ai/provider_llm_client.cpp
     server/ai/ai_service.cpp
     server/http/api_routes.cpp
 )
@@ -45,7 +47,15 @@ target_include_directories(adr_atam_core PUBLIC
 )
 
 if(WIN32)
-    target_link_libraries(adr_atam_core PUBLIC ws2_32)
+    target_link_libraries(adr_atam_core PUBLIC ws2_32 crypt32)
+endif()
+
+find_package(OpenSSL QUIET)
+if(OpenSSL_FOUND)
+    target_compile_definitions(adr_atam_core PUBLIC CPPHTTPLIB_OPENSSL_SUPPORT)
+    target_link_libraries(adr_atam_core PUBLIC OpenSSL::SSL OpenSSL::Crypto)
+else()
+    message(WARNING "OpenSSL not found; Gemini provider will build but report unavailable at runtime.")
 endif()
 
 if(NOT WIN32)

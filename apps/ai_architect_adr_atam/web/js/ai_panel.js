@@ -1,5 +1,25 @@
 const AiPanel = (() => {
   const { $ } = ui;
+  const defaultModels = {
+    ollama: 'gemma4:e2b',
+    gemini: 'gemma-4-26b-a4b-it',
+  };
+  let lastProvider = 'ollama';
+
+  function syncProviderFields() {
+    const provider = $('#cfg-provider').value || 'ollama';
+    const isGemini = provider === 'gemini';
+    $('#cfg-host').disabled = isGemini;
+    $('#cfg-port').disabled = isGemini;
+    $('#cfg-api-key-note').textContent = isGemini
+      ? 'Gemini reads GEMINI_API_KEY from .env.'
+      : 'Ollama runs locally and does not use an API key.';
+    const model = $('#cfg-model');
+    if (!model.value || model.value === defaultModels[lastProvider]) {
+      model.value = defaultModels[provider];
+    }
+    lastProvider = provider;
+  }
 
   async function refresh() {
     try {
@@ -14,10 +34,14 @@ const AiPanel = (() => {
         dot.className = 'dot err'; label.textContent = 'AI: offline';
       }
       // pre-fill config dialog
+      const provider = st.provider || 'ollama';
+      $('#cfg-provider').value = provider;
       $('#cfg-host').value = st.host || '127.0.0.1';
       $('#cfg-port').value = st.port || 11434;
-      $('#cfg-model').value = st.activeModel || 'gemma4:e2b';
+      $('#cfg-model').value = st.activeModel || defaultModels[provider] || defaultModels.ollama;
       $('#cfg-enabled').checked = !!st.enabled;
+      lastProvider = provider;
+      syncProviderFields();
     } catch (e) {
       $('#ai-dot').className = 'dot err';
       $('#ai-label').textContent = 'AI: unknown';
@@ -31,6 +55,7 @@ const AiPanel = (() => {
 
   async function save() {
     const cfg = {
+      provider: $('#cfg-provider').value || 'ollama',
       host: $('#cfg-host').value,
       port: parseInt($('#cfg-port').value || '11434', 10),
       model: $('#cfg-model').value,
@@ -45,6 +70,7 @@ const AiPanel = (() => {
 
   function init() {
     $('#ai-status').addEventListener('click', openConfig);
+    $('#cfg-provider').addEventListener('change', syncProviderFields);
     $('#cfg-save').addEventListener('click', (ev) => { ev.preventDefault(); save(); $('#ai-config-dialog').close(); });
     refresh();
     setInterval(refresh, 15000);

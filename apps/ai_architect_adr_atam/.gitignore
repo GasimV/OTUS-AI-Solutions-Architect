@@ -1,6 +1,9 @@
 build/
 out/
 cmake-build-*/
+.env
+.env.*
+!.env.example
 *.obj
 *.o
 *.exe

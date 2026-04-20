@@ -3,11 +3,13 @@
 A standalone, offline C++ desktop tool that helps an AI Architect author and
 reuse **Architecture Decision Records (ADR)** and **Architecture Tradeoff
 Analysis Method (ATAM)** artifacts. The app embeds a local HTTP server and a
-browser-based UI, and can optionally call a locally installed **Ollama** LLM
-(default model: `gemma4:e2b`) to assist with drafting, summarization, and
-tradeoff inference.
+browser-based UI, and can optionally call either a locally installed **Ollama**
+LLM (default model: `gemma4:e2b`) or the **Gemini API** (default model:
+`gemma-4-26b-a4b-it`) to assist with drafting, summarization, and tradeoff
+inference.
 
-Everything is local. The app is fully usable with the LLM disabled or absent.
+The app is fully usable with the LLM disabled or absent. Ollama mode stays
+local; Gemini mode calls Google's hosted API and requires your own API key.
 
 ## Contents
 
@@ -51,7 +53,7 @@ apps/ai_architect_adr_atam/
 │   ├── domain/            ← ADR / ATAM domain models
 │   ├── persistence/       ← FileStore + repositories
 │   ├── services/          ← ADR / ATAM / export / templates / reuse
-│   ├── ai/                ← LlmClient interface, OllamaClient, AiService
+│   ├── ai/                ← LlmClient interface, Ollama/Gemini clients, AiService
 │   └── http/              ← REST API routes
 ├── web/                   ← HTML / CSS / JS frontend
 ├── templates/             ← ADR & ATAM JSON templates (reusable)
@@ -82,6 +84,18 @@ apps/ai_architect_adr_atam/
 
   The app still runs fully without this — AI buttons are inactive and the
   topbar shows "AI: offline".
+- (Optional) **OpenSSL development libraries** if you want the native build to
+  call Gemini API over HTTPS. The CMake build still succeeds without OpenSSL,
+  but Gemini status will report that HTTPS support is unavailable.
+  On MSYS2 UCRT64, install the matching packages:
+
+  ```bash
+  pacman -Syu
+  pacman -S mingw-w64-ucrt-x86_64-openssl mingw-w64-ucrt-x86_64-ca-certificates
+  ```
+
+- (Optional) **Gemini API key** in `.env` if using `ADRA_LLM_PROVIDER=gemini`.
+  Start from `.env.example`; `.env` is ignored by git.
 
 [↑ Back to contents](#contents)
 
@@ -113,6 +127,7 @@ From a **UCRT64 shell** (or any shell with the UCRT64 toolchain on PATH):
 cmake -S . -B build -G "MinGW Makefiles" \
   -DCMAKE_CXX_COMPILER=C:/msys64/ucrt64/bin/g++.exe \
   -DCMAKE_MAKE_PROGRAM=C:/msys64/ucrt64/bin/mingw32-make.exe \
+  -DCMAKE_PREFIX_PATH=C:/msys64/ucrt64 \
   -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j
 ```
@@ -123,14 +138,18 @@ to link against MinGW runtime (e.g.
 `lld-link: error: could not open 'kernel32.lib'`).
 
 The resulting executable depends on UCRT64 runtime DLLs
-(`libstdc++-6.dll`, `libgcc_s_seh-1.dll`, `libwinpthread-1.dll`). If you run
-the binary or tests from a shell that does **not** have `C:\msys64\ucrt64\bin`
-on PATH, you will see error `127` or a "DLL not found" dialog. Fix:
+(`libstdc++-6.dll`, `libgcc_s_seh-1.dll`, `libwinpthread-1.dll`) and, when
+Gemini/OpenSSL support is enabled, OpenSSL DLLs (`libssl-3-x64.dll`,
+`libcrypto-3-x64.dll`). If you run the binary or tests from a shell that does
+**not** have `C:\msys64\ucrt64\bin` on PATH, you will see error `127` or a
+"DLL not found" dialog. Put UCRT64 first on PATH:
 
 ```bash
-export PATH="/c/msys64/ucrt64/bin:$PATH"   # Git Bash / MSYS2
+export PATH="/c/msys64/ucrt64/bin:/usr/bin:$PATH"   # Git Bash / MSYS2
+# or, in PowerShell:
+#   $env:PATH = "C:\msys64\ucrt64\bin;C:\msys64\usr\bin;$env:PATH"
 # or, in cmd:
-#   set PATH=C:\msys64\ucrt64\bin;%PATH%
+#   set PATH=C:\msys64\ucrt64\bin;C:\msys64\usr\bin;%PATH%
 ```
 
 ### Windows · MSVC
@@ -163,8 +182,9 @@ Launchers (must be run from `apps/ai_architect_adr_atam/`, foreground):
 - Windows: `start_server.bat`
 - Unix / Git Bash: `./start_server.sh`
 
-On launch the server prints a banner showing the resolved paths, the Ollama
-target, and the listen address, ending with `Press Ctrl+C to stop.`.
+On launch the server prints a banner showing the resolved paths, the selected
+AI provider, configured provider targets, and the listen address, ending with
+`Press Ctrl+C to stop.`.
 
 [↑ Back to contents](#contents)
 
@@ -217,7 +237,8 @@ docker build -t adr-atam:latest .
 
 Verified outcome (Docker Desktop linux/amd64 engine):
 - 100% tests passed
-- Final image ≈ 83 MB (`ubuntu:24.04` + `libstdc++6` + binary + web/templates/data).
+- Final image is based on `ubuntu:24.04` with `libstdc++6`, OpenSSL runtime,
+  the binary, and web/templates/data assets.
 
 ### Run the container
 
@@ -243,6 +264,16 @@ Disable AI at startup:
 
 ```bash
 docker run --rm -p 8090:8090 adr-atam:latest --no-ai
+```
+
+Use Gemini API from Docker:
+
+```bash
+docker run --rm -p 8090:8090 \
+  -e ADRA_LLM_PROVIDER=gemini \
+  -e GEMINI_API_KEY="$GEMINI_API_KEY" \
+  -e GEMINI_MODEL=gemma-4-26b-a4b-it \
+  adr-atam:latest
 ```
 
 ### Talking to Ollama from inside the container
@@ -287,13 +318,20 @@ docker stop adr-atam
 | `--host HOST` | `127.0.0.1` | Listen address |
 | `--port N` | `8090` | Listen port |
 | `--root DIR` | auto-detected | Base dir (must contain `web/`, `templates/`, `data/`) |
+| `--ai-provider NAME` | `ollama` | LLM provider: `ollama` or `gemini` |
 | `--ollama-host HOST` | `127.0.0.1` | Ollama HTTP host |
 | `--ollama-port N` | `11434` | Ollama HTTP port |
 | `--ollama-model NAME` | `gemma4:e2b` | Default model |
+| `--gemini-api-host HOST` | `generativelanguage.googleapis.com` | Gemini API HTTPS host |
+| `--gemini-api-port N` | `443` | Gemini API HTTPS port |
+| `--gemini-model NAME` | `gemma-4-26b-a4b-it` | Gemini API model |
 | `--no-ai` | — | Disable AI integration entirely |
 
-Environment variables `ADRA_HOST`, `ADRA_PORT`, `OLLAMA_HOST`, `OLLAMA_PORT`,
-`OLLAMA_MODEL`, `ADRA_AI_ENABLED` are honored as fallbacks.
+Environment variables `ADRA_HOST`, `ADRA_PORT`, `ADRA_LLM_PROVIDER`,
+`OLLAMA_HOST`, `OLLAMA_PORT`, `OLLAMA_MODEL`, `GEMINI_API_KEY`,
+`GEMINI_MODEL`, `GEMINI_API_HOST`, `GEMINI_API_PORT`, and `ADRA_AI_ENABLED`
+are honored as fallbacks. The server also loads `.env` from the app directory
+at startup; existing process environment variables take precedence.
 
 [↑ Back to contents](#contents)
 
@@ -301,9 +339,20 @@ Environment variables `ADRA_HOST`, `ADRA_PORT`, `OLLAMA_HOST`, `OLLAMA_PORT`,
 
 ## Runtime AI config
 
-The AI badge in the topbar opens a config dialog (host/port/model/enabled). It
-also posts to `POST /api/ai/config`, which updates the in-memory `LlmConfig`
-without restarting.
+The AI badge in the topbar opens a config dialog
+(provider/Ollama host/Ollama port/model/enabled). It also posts to
+`POST /api/ai/config`, which updates the in-memory `LlmConfig` without
+restarting.
+
+For Gemini API, create `.env` from `.env.example` and set:
+
+```bash
+ADRA_LLM_PROVIDER=gemini
+GEMINI_API_KEY=your-api-key
+GEMINI_MODEL=gemma-4-26b-a4b-it
+```
+
+Do not commit `.env`; it is ignored by the app-level `.gitignore`.
 
 [↑ Back to contents](#contents)
 
@@ -320,8 +369,8 @@ ctest --test-dir build --output-on-failure
 
 The suite covers util, domain round-trips, persistence CRUD, and service
 behavior including template apply, exports, and reuse similarity. No network
-or Ollama required. Current status: **19 tests, all passing** on MSYS2 UCRT64
-g++ 13.2.
+or LLM provider required. Current status: **19 tests, all passing** on MSYS2
+UCRT64 g++ 13.2.
 
 > On MSYS2 UCRT64, remember to have `/c/msys64/ucrt64/bin` (or the cmd
 > equivalent) on PATH when invoking the test binary from outside a UCRT64
@@ -367,8 +416,8 @@ See [DESIGN.md](DESIGN.md) for the full reference. Highlights:
 ## Extending
 
 - Swap the LLM provider by implementing the `adra::ai::LlmClient` interface.
-  `OllamaClient` is the default; a new provider can be wired up in
-  `server/main.cpp` without touching the routes or services.
+  `ProviderLlmClient` currently routes to `OllamaClient` or `GeminiClient`
+  without touching the routes or services.
 - Add domain fields by extending `domain/adr.h` + `domain/atam.h` and their
   `to_json/from_json` — the file store is schema-flexible.
 - Add a template by dropping a `*.json` file into `templates/adr/` or
@@ -404,6 +453,34 @@ See [DESIGN.md](DESIGN.md) for the full reference. Highlights:
   Confirm Ollama is reachable at `127.0.0.1:11434` and the configured model
   (default `gemma4:e2b`) is pulled. You can change host/port/model at runtime
   via the topbar AI config dialog without restarting.
+
+- **Gemini says `GEMINI_API_KEY is not set`.**
+  Copy `.env.example` to `.env`, set `ADRA_LLM_PROVIDER=gemini`, and add your
+  real `GEMINI_API_KEY`. Restart the server after changing `.env`.
+
+- **Gemini says OpenSSL support is unavailable.**
+  Install OpenSSL development libraries and re-run CMake so
+  `CPPHTTPLIB_OPENSSL_SUPPORT` can be enabled. On MSYS2 UCRT64:
+
+  ```bash
+  pacman -Syu
+  pacman -S mingw-w64-ucrt-x86_64-openssl mingw-w64-ucrt-x86_64-ca-certificates
+  cmake -S . -B build -G "MinGW Makefiles" \
+    -DCMAKE_CXX_COMPILER=C:/msys64/ucrt64/bin/g++.exe \
+    -DCMAKE_MAKE_PROGRAM=C:/msys64/ucrt64/bin/mingw32-make.exe \
+    -DCMAKE_PREFIX_PATH=C:/msys64/ucrt64 \
+    -DCMAKE_BUILD_TYPE=Release
+  cmake --build build -j
+  ```
+
+  If you run from PowerShell after an MSYS2 update, put the updated UCRT64
+  runtime first:
+
+  ```powershell
+  $env:PATH = "C:\msys64\ucrt64\bin;C:\msys64\usr\bin;$env:PATH"
+  ```
+
+  Docker builds install this dependency automatically.
 
 - **AI badge is "offline" only when running in Docker.**
   Inside a container, `127.0.0.1` is the container itself, not the host. Use

@@ -7,9 +7,13 @@
 namespace adra::ai {
 
 struct LlmConfig {
+    std::string provider = "ollama";
     std::string host = "127.0.0.1";
     int port = 11434;
     std::string model = "gemma4:e2b";
+    std::string api_host = "generativelanguage.googleapis.com";
+    int api_port = 443;
+    std::string api_key;
     int connect_timeout_sec = 3;
     int read_timeout_sec = 120;
     bool enabled = true;
@@ -23,7 +27,7 @@ struct LlmStatus {
     std::string error;
 };
 
-// Provider-neutral interface so the app is not tied to Ollama.
+// Provider-neutral interface so the app is not tied to one LLM backend.
 class LlmClient {
 public:
     virtual ~LlmClient() = default;

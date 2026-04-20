@@ -1,5 +1,7 @@
 #include "ai/ollama_client.h"
 
+#include <utility>
+
 #include "third_party/httplib.h"
 #include "third_party/json.hpp"
 

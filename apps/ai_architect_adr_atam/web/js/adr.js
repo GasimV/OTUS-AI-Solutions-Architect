@@ -230,11 +230,120 @@ const ADR = (() => {
     } catch (e) { ui.err('AI draft failed: ' + e.message); }
   }
 
+  // Maps a heading string (e.g. "Alternatives Considered", "1. Decision",
+  // "Risks:") to the ADR section key it refers to, or null if unrecognized.
+  function normalizeHeading(h) {
+    const s = h.toLowerCase().replace(/[^a-z ]+/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!s) return null;
+    if (s === 'adr' || s.startsWith('adr ') || s.startsWith('title')) return 'title';
+    if (s.startsWith('context') || s === 'background') return 'context';
+    if (s.startsWith('decision')) return 'decision';
+    if (s.startsWith('consequence')) return 'consequences';
+    if (s.startsWith('alternative')) return 'alternatives';
+    if (s.startsWith('assumption')) return 'assumptions';
+    if (s.startsWith('risk')) return 'risks';
+    return null;
+  }
+
+  // Parses a single line as an ATX markdown heading (`## Text`) or a
+  // bold-only line (`**Text**`). Returns { label, inline } where `inline` is
+  // any content after the first colon in the heading text (for patterns like
+  // `# ADR: Use K8s`). Returns null if the line is not a heading.
+  function parseHeading(line) {
+    let m = line.match(/^\s{0,3}#{1,6}\s+(.+?)\s*$/);
+    if (!m) m = line.match(/^\s{0,3}\*\*\s*(.+?)\s*\*\*\s*:?\s*$/);
+    if (!m) m = line.match(/^\s{0,3}__\s*(.+?)\s*__\s*:?\s*$/);
+    if (!m) return null;
+    let text = m[1].replace(/\s*:+\s*$/, '').trim();
+    const colonIdx = text.indexOf(':');
+    let label = text;
+    let inline = '';
+    if (colonIdx !== -1) {
+      label = text.slice(0, colonIdx).trim();
+      inline = text.slice(colonIdx + 1).trim();
+    }
+    label = label.replace(/^\d+[.)]\s*/, '').trim();
+    return { label, inline };
+  }
+
+  // Extracts { title?, context?, decision?, consequences?, alternatives?,
+  // assumptions?, risks? } from LLM markdown output.
+  function parseDraftSections(md) {
+    const out = {};
+    const lines = String(md || '').split(/\r?\n/);
+    let currentKey = null;
+    let buf = [];
+    const flush = () => {
+      if (currentKey) {
+        const body = buf.join('\n').replace(/^\s+|\s+$/g, '');
+        if (body) out[currentKey] = (out[currentKey] ? out[currentKey] + '\n\n' : '') + body;
+      }
+      buf = [];
+    };
+    for (const line of lines) {
+      const h = parseHeading(line);
+      const key = h ? normalizeHeading(h.label) : null;
+      if (key) {
+        flush();
+        if (key === 'title') {
+          if (h.inline && !out.title) out.title = h.inline;
+          currentKey = null;
+        } else {
+          currentKey = key;
+          if (h.inline) buf.push(h.inline);
+        }
+        continue;
+      }
+      if (currentKey) buf.push(line);
+    }
+    flush();
+    return out;
+  }
+
+  // Converts a markdown bullet/numbered list into one-item-per-line plain text.
+  function bulletsToLines(text) {
+    return String(text || '')
+      .split(/\r?\n/)
+      .map((l) => l.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, '').trim())
+      .filter((l) => l.length > 0)
+      .join('\n');
+  }
+
   function aiApply() {
     if (!lastAiDraft) return ui.err('No draft. Click "Draft" first.');
-    // Naive mapping: put the whole draft in Context so the architect can re-split.
-    $('#adr-context').value = lastAiDraft;
-    ui.ok('Applied draft into Context — split into sections as needed, then Save.');
+    const sec = parseDraftSections(lastAiDraft);
+    const filled = [];
+
+    const setProse = (id, key) => {
+      if (!sec[key]) return;
+      $(id).value = sec[key];
+      filled.push(key);
+    };
+    const setList = (id, key) => {
+      if (!sec[key]) return;
+      const lines = bulletsToLines(sec[key]);
+      if (!lines) return;
+      $(id).value = lines;
+      filled.push(key);
+    };
+
+    if (sec.title && !$('#adr-title').value) {
+      $('#adr-title').value = sec.title;
+      filled.push('title');
+    }
+    setProse('#adr-context', 'context');
+    setProse('#adr-decision', 'decision');
+    setProse('#adr-consequences', 'consequences');
+    setList('#adr-alternatives', 'alternatives');
+    setList('#adr-assumptions', 'assumptions');
+    setList('#adr-risks', 'risks');
+
+    if (filled.length === 0) {
+      $('#adr-context').value = lastAiDraft;
+      ui.ok('Draft had no recognizable sections — full text placed in Context for manual splitting.');
+      return;
+    }
+    ui.ok('Applied draft to: ' + filled.join(', ') + '. Review and Save.');
   }
 
   function init() {
