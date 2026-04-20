@@ -383,6 +383,11 @@ GEMINI_API_KEY=your-api-key
 GEMINI_MODEL=gemma-4-26b-a4b-it
 ```
 
+Gemini is the default provider. If an older `.env` still contains
+`ADRA_LLM_PROVIDER=ollama` but `GEMINI_API_KEY` is set, startup prefers Gemini
+so the AI badge becomes ready without manually re-saving the provider. Select
+Ollama in the AI settings dialog when you want to switch for the current run.
+
 Do not commit `.env`; it is ignored by the app-level `.gitignore`.
 
 [↑ Back to contents](#contents)

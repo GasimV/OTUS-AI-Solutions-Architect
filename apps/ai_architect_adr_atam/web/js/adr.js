@@ -41,6 +41,7 @@ const ADR = (() => {
       $('#adr-form').classList.remove('hidden');
       $('#adr-reuse-box').classList.add('hidden');
       $('#adr-preview-box').classList.add('hidden');
+      $('#adr-preview-tools').classList.add('hidden');
       $('#adr-number').value = a.number || 0;
       $('#adr-status').value = a.status || 'proposed';
       $('#adr-date').value = a.date || '';
@@ -150,6 +151,7 @@ const ADR = (() => {
       const md = await api.getText('/api/adr/' + current.id + '/export?format=md');
       const box = $('#adr-preview-box');
       box.textContent = md;
+      $('#adr-preview-tools').classList.remove('hidden');
       box.classList.remove('hidden');
     } catch (e) { ui.err('Preview failed: ' + e.message); }
   }
@@ -377,6 +379,14 @@ const ADR = (() => {
     $('#adr-delete').addEventListener('click', del);
     $('#adr-reuse').addEventListener('click', findSimilar);
     $('#adr-preview').addEventListener('click', preview);
+    $('#adr-preview-expand').addEventListener('click', () => {
+      const box = $('#adr-preview-box');
+      const tools = $('#adr-preview-tools');
+      const expanded = !box.classList.contains('expanded');
+      box.classList.toggle('expanded', expanded);
+      tools.classList.toggle('expanded', expanded);
+      $('#adr-preview-expand').textContent = expanded ? 'Collapse' : 'Expand';
+    });
     $('#adr-export-md').addEventListener('click', () => exportFile('md'));
     $('#adr-export-json').addEventListener('click', () => exportFile('json'));
     $('#adr-filter').addEventListener('input', refreshList);

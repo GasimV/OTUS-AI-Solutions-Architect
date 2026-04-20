@@ -133,6 +133,9 @@ AppConfig parse_config(int argc, char** argv, const fs::path& exe_dir) {
     cfg.gemini_model = env_or("GEMINI_MODEL", cfg.gemini_model);
     cfg.gemini_api_key = env_or("GEMINI_API_KEY", cfg.gemini_api_key);
     cfg.ai_enabled = env_or("ADRA_AI_ENABLED", "true") != "false";
+    if (!cfg.gemini_api_key.empty() && cfg.ai_provider == "ollama") {
+        cfg.ai_provider = "gemini";
+    }
 
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];

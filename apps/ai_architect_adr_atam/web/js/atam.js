@@ -30,6 +30,7 @@ const ATAM = (() => {
       $('#atam-empty').classList.add('hidden');
       $('#atam-form').classList.remove('hidden');
       $('#atam-preview-box').classList.add('hidden');
+      $('#atam-preview-tools').classList.add('hidden');
       $('#atam-ai-output').classList.add('hidden');
       $('#atam-status').value = s.status || 'draft';
       $('#atam-date').value = s.date || '';
@@ -211,6 +212,7 @@ const ATAM = (() => {
       const md = await api.getText('/api/atam/' + current.id + '/export?format=md');
       const box = $('#atam-preview-box');
       box.textContent = md;
+      $('#atam-preview-tools').classList.remove('hidden');
       box.classList.remove('hidden');
     } catch (e) { ui.err('Preview failed: ' + e.message); }
   }
@@ -504,6 +506,14 @@ const ATAM = (() => {
     $('#atam-save').addEventListener('click', save);
     $('#atam-delete').addEventListener('click', del);
     $('#atam-preview').addEventListener('click', preview);
+    $('#atam-preview-expand').addEventListener('click', () => {
+      const box = $('#atam-preview-box');
+      const tools = $('#atam-preview-tools');
+      const expanded = !box.classList.contains('expanded');
+      box.classList.toggle('expanded', expanded);
+      tools.classList.toggle('expanded', expanded);
+      $('#atam-preview-expand').textContent = expanded ? 'Collapse' : 'Expand';
+    });
     $('#atam-export-md').addEventListener('click', () => exportFile('md'));
     $('#atam-export-json').addEventListener('click', () => exportFile('json'));
     $('#atam-filter').addEventListener('input', refreshList);

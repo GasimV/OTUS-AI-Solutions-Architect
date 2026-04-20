@@ -141,7 +141,28 @@ button.mini { padding: 2px 8px; font-size: 12px; }
 .card .actions { display: flex; justify-content: flex-end; gap: 6px; }
 
 .preview {
-  border: 1px solid var(--border); max-height: 400px; white-space: pre-wrap;
+  border: 1px solid var(--border); min-height: 360px; max-height: 70vh;
+  white-space: pre-wrap; font-size: 14px; line-height: 1.55;
+}
+.preview.expanded {
+  position: fixed; inset: 16px; z-index: 20; max-height: none; margin: 0;
+  background: var(--code); box-shadow: 0 12px 40px rgba(0,0,0,0.55);
+}
+.preview-tools {
+  display: flex; align-items: center; justify-content: space-between;
+  border: 1px solid var(--border); border-bottom: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: var(--panel2); padding: 8px 10px; margin-top: 8px;
+}
+.preview-tools + .preview {
+  border-top-left-radius: 0; border-top-right-radius: 0; margin-top: 0;
+}
+.preview-tools.expanded {
+  position: fixed; top: 16px; left: 16px; right: 16px; z-index: 21;
+  border-bottom: 1px solid var(--border); box-shadow: 0 12px 40px rgba(0,0,0,0.55);
+}
+.preview-tools.expanded + .preview.expanded {
+  top: 58px;
 }
 .ai-output {
   border: 1px solid var(--border); background: var(--panel2);
