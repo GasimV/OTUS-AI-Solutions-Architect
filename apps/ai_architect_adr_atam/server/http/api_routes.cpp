@@ -365,6 +365,21 @@ void register_routes(httplib::Server& svr, const ServerDeps& deps) {
         });
     });
 
+    svr.Post("/api/ai/draft-atam", [deps, ai_required, to_ai_response](
+                                       const httplib::Request& req, httplib::Response& res) {
+        if (!ai_required(res)) return;
+        with_json_body(req, res, [&](const json& body) {
+            ai::AiDraftAtamRequest r;
+            r.title = body.value("title", "");
+            r.system_context = body.value("systemContext", "");
+            r.notes = body.value("notes", "");
+            if (body.contains("qualityAttributes") && body["qualityAttributes"].is_array())
+                for (const auto& q : body["qualityAttributes"])
+                    if (q.is_string()) r.quality_attributes.push_back(q.get<std::string>());
+            to_ai_response(res, deps.ai->draft_atam(r));
+        });
+    });
+
     svr.Post("/api/ai/improve-section", [deps, ai_required, to_ai_response](
                                             const httplib::Request& req, httplib::Response& res) {
         if (!ai_required(res)) return;

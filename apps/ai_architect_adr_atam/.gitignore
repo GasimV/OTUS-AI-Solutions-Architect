@@ -17,3 +17,5 @@ CMakeFiles/
 exports/*.md
 exports/*.json
 !exports/.gitkeep
+logs/*.log
+!logs/.gitkeep

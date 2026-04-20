@@ -217,6 +217,7 @@ directory per test.
 | POST | `/api/reuse/adrs` | Similar-ADR search |
 | POST | `/api/reuse/scenarios` | Similar-scenario search |
 | POST | `/api/ai/draft-adr` | Draft from architect notes |
+| POST | `/api/ai/draft-atam` | Draft ATAM fields from architect notes |
 | POST | `/api/ai/improve-section` | Rewrite a section |
 | POST | `/api/ai/summarize-context` | Context summary |
 | POST | `/api/ai/suggest-alternatives` | Suggest 3 alternatives |

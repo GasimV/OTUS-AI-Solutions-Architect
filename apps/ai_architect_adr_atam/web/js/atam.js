@@ -4,6 +4,7 @@ const ATAM = (() => {
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
   let current = null;
+  let lastAiDraft = '';
 
   async function refreshList() {
     try {
@@ -259,6 +260,130 @@ const ATAM = (() => {
     box.classList.remove('hidden');
   }
 
+  function showDraftOutput(text) {
+    $('#ai-atam-output').textContent = text;
+    showAiOutput(text);
+  }
+
+  function collectQualityAttributes() {
+    const values = [];
+    splitCsv($('#atam-tags').value).forEach((x) => values.push(x));
+    $$('#atam-approaches .card [data-f="qualityAttributes"]').forEach((el) =>
+      splitCsv(el.value).forEach((x) => values.push(x)));
+    $$('#atam-scenarios .card [data-f="qualityAttribute"]').forEach((el) => {
+      if (el.value.trim()) values.push(el.value.trim());
+    });
+    return [...new Set(values.filter(Boolean))];
+  }
+
+  async function aiDraftAtam() {
+    try {
+      const r = await api.post('/api/ai/draft-atam', {
+        title: $('#atam-title').value || '',
+        systemContext: $('#atam-system-context').value || '',
+        notes: $('#ai-atam-notes').value,
+        qualityAttributes: collectQualityAttributes(),
+      });
+      if (!r.ok) return ui.err(r.error || 'AI unavailable');
+      lastAiDraft = r.text;
+      showDraftOutput(r.text);
+    } catch (e) { ui.err('AI draft failed: ' + e.message); }
+  }
+
+  function extractDraftJson(text) {
+    let s = String(text || '').trim();
+    const fenced = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fenced) s = fenced[1].trim();
+    try { return JSON.parse(s); } catch (_) {}
+    const first = s.indexOf('{');
+    const last = s.lastIndexOf('}');
+    if (first !== -1 && last > first) {
+      return JSON.parse(s.slice(first, last + 1));
+    }
+    throw new Error('AI draft did not contain parseable JSON.');
+  }
+
+  function asArray(x) {
+    return Array.isArray(x) ? x.filter((v) => v !== null && v !== undefined) : [];
+  }
+
+  function aiApplyAtamDraft() {
+    if (!lastAiDraft) return ui.err('No ATAM draft. Click "Draft fields" first.');
+    let draft;
+    try {
+      draft = extractDraftJson(lastAiDraft);
+    } catch (e) {
+      return ui.err(e.message);
+    }
+
+    const nonEmpty =
+      $('#atam-system-context').value.trim() ||
+      $('#atam-drivers').value.trim() ||
+      $('#atam-constraints').value.trim() ||
+      $('#atam-assumptions').value.trim() ||
+      $('#atam-approaches .card') ||
+      $('#atam-scenarios .card') ||
+      $('#atam-findings .card');
+    if (nonEmpty && !confirm('Apply AI draft and replace current ATAM draft fields?')) return;
+
+    const filled = [];
+    if (draft.systemContext) {
+      $('#atam-system-context').value = String(draft.systemContext);
+      filled.push('system context');
+    }
+    const setLines = (id, key, label) => {
+      const vals = asArray(draft[key]).map((x) => String(x).trim()).filter(Boolean);
+      if (!vals.length) return;
+      $(id).value = vals.join('\n');
+      filled.push(label);
+    };
+    setLines('#atam-drivers', 'businessDrivers', 'business drivers');
+    setLines('#atam-constraints', 'constraints', 'constraints');
+    setLines('#atam-assumptions', 'assumptions', 'assumptions');
+
+    const approaches = asArray(draft.approaches).map((a) => ({
+      name: a.name || '',
+      description: a.description || '',
+      qualityAttributes: asArray(a.qualityAttributes).map(String),
+      tactics: asArray(a.tactics).map(String),
+    })).filter((a) => a.name || a.description);
+    if (approaches.length) {
+      renderApproaches(approaches);
+      filled.push('approaches');
+    }
+
+    const scenarios = asArray(draft.scenarios).map((s) => ({
+      qualityAttribute: s.qualityAttribute || '',
+      stimulusSource: s.stimulusSource || '',
+      stimulus: s.stimulus || '',
+      environment: s.environment || '',
+      artifact: s.artifact || '',
+      response: s.response || '',
+      responseMeasure: s.responseMeasure || '',
+      importance: s.importance || '',
+      difficulty: s.difficulty || '',
+    })).filter((s) => s.qualityAttribute || s.stimulus || s.response);
+    if (scenarios.length) {
+      renderScenarios(scenarios);
+      filled.push('scenarios');
+    }
+
+    const validKinds = new Set(['risk', 'non-risk', 'sensitivity-point', 'tradeoff-point']);
+    const findings = asArray(draft.findings).map((f) => ({
+      kind: validKinds.has(f.kind) ? f.kind : 'risk',
+      description: f.description || '',
+      severity: f.severity || '',
+      linkedAdrId: '',
+    })).filter((f) => f.description);
+    if (findings.length) {
+      renderFindings(findings);
+      filled.push('findings');
+    }
+
+    if (!filled.length) return ui.err('AI draft JSON did not contain recognizable ATAM fields.');
+    ui.ok('Applied ATAM draft to: ' + filled.join(', ') + '. Review and Save.');
+  }
+
   async function aiSuggestScenarioForFirstQA() {
     const qa = ($('#atam-scenarios .card [data-f="qualityAttribute"]') || { value: '' }).value;
     const ctx = $('#atam-system-context').value;
@@ -305,6 +430,8 @@ const ATAM = (() => {
     $('#atam-infer-tradeoffs').addEventListener('click', aiInferTradeoffs);
     $('#atam-summary').addEventListener('click', aiSummary);
     $('#atam-adr-candidates').addEventListener('click', aiAdrCandidates);
+    $('#ai-draft-atam').addEventListener('click', aiDraftAtam);
+    $('#ai-apply-atam-draft').addEventListener('click', aiApplyAtamDraft);
     window.addEventListener('view:activated', (e) => { if (e.detail === 'atam') refreshList(); });
     window.addEventListener('atam:select', (e) => load(e.detail));
   }

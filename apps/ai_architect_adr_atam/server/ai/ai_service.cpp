@@ -55,6 +55,40 @@ AiResult AiService::draft_adr(const AiDraftAdrRequest& req) {
     return wrap(client_.generate(p.str(), kSystemAdr), "LLM unavailable or returned no content");
 }
 
+AiResult AiService::draft_atam(const AiDraftAtamRequest& req) {
+    std::ostringstream p;
+    p << "Draft initial ATAM work products from the architect notes.\n\n"
+      << "Return ONLY compact JSON. Do not wrap it in Markdown fences. Use exactly this shape:\n"
+      << "{\n"
+      << "  \"systemContext\": \"...\",\n"
+      << "  \"businessDrivers\": [\"...\"],\n"
+      << "  \"constraints\": [\"...\"],\n"
+      << "  \"assumptions\": [\"...\"],\n"
+      << "  \"approaches\": [\n"
+      << "    {\"name\":\"...\",\"description\":\"...\",\"qualityAttributes\":[\"...\"],\"tactics\":[\"...\"]}\n"
+      << "  ],\n"
+      << "  \"scenarios\": [\n"
+      << "    {\"qualityAttribute\":\"...\",\"stimulusSource\":\"...\",\"stimulus\":\"...\","
+         "\"environment\":\"...\",\"artifact\":\"...\",\"response\":\"...\","
+         "\"responseMeasure\":\"...\",\"importance\":\"H|M|L\",\"difficulty\":\"H|M|L\"}\n"
+      << "  ],\n"
+      << "  \"findings\": [\n"
+      << "    {\"kind\":\"risk|non-risk|sensitivity-point|tradeoff-point\","
+         "\"description\":\"...\",\"severity\":\"H|M|L\"}\n"
+      << "  ]\n"
+      << "}\n\n"
+      << "Title: " << (req.title.empty() ? "(not provided)" : req.title) << "\n"
+      << "Quality attributes to emphasize: " << as_list(req.quality_attributes) << "\n"
+      << "Existing system context:\n"
+      << (req.system_context.empty() ? "(not provided)" : req.system_context) << "\n\n"
+      << "Architect notes:\n" << (req.notes.empty() ? "(no notes)" : req.notes) << "\n\n"
+      << "Keep content concrete and useful for an architecture review. "
+      << "If information is missing, make conservative assumptions and list them in assumptions. "
+      << "Generate 2-4 business drivers, 2-4 constraints, 2-4 assumptions, "
+      << "2-4 approaches, 3-5 quality attribute scenarios, and 3-6 findings.";
+    return wrap(client_.generate(p.str(), kSystemAtam), "LLM unavailable or returned no content");
+}
+
 AiResult AiService::improve_section(const std::string& section, const std::string& text) {
     std::ostringstream p;
     p << "Rewrite the following ADR '" << section

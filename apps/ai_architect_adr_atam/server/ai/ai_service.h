@@ -22,6 +22,13 @@ struct AiDraftAdrRequest {
     std::vector<std::string> quality_attributes;
 };
 
+struct AiDraftAtamRequest {
+    std::string title;
+    std::string system_context;
+    std::string notes;
+    std::vector<std::string> quality_attributes;
+};
+
 // High-level, architect-oriented wrappers around LlmClient.
 // Fails gracefully (returns ok=false) when the LLM is unavailable.
 class AiService {
@@ -29,6 +36,7 @@ public:
     explicit AiService(LlmClient& client);
 
     AiResult draft_adr(const AiDraftAdrRequest& req);
+    AiResult draft_atam(const AiDraftAtamRequest& req);
     AiResult improve_section(const std::string& section, const std::string& text);
     AiResult summarize_context(const std::string& context);
     AiResult suggest_alternatives(const std::string& title, const std::string& context,

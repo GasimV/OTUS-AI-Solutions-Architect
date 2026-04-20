@@ -74,12 +74,16 @@ time.
    - Response: `blocks after 100 failed auth attempts in 1 min`
    - Measure: `< 1 s detection, 0 successful bypass`
 3. **Save**.
-4. Click **AI suggest** next to the scenario section — the tool calls
+4. Paste raw review notes into the ATAM **AI assist** panel and click
+   **Draft fields**. Review the JSON output, then click **Apply to editor** to
+   fill system context, drivers, constraints, assumptions, approaches,
+   scenarios, and findings.
+5. Click **AI suggest** next to the scenario section — the tool calls
    `/api/ai/suggest-scenarios` with the QA of the first row and the system
    context, producing three more candidate scenarios in the AI panel.
-5. Click **AI infer S/T** to ask the model to propose sensitivity and
+6. Click **AI infer S/T** to ask the model to propose sensitivity and
    tradeoff points using the whole session state.
-6. Click **AI summary** for a final report summary, and
+7. Click **AI summary** for a final report summary, and
    **AI → ADR candidates** for a list of ADRs you should write from the
    findings.
 

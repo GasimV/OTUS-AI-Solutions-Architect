@@ -1,0 +1,127 @@
+{
+  "approaches": [
+    {
+      "description": "Scale out behind a load balancer.",
+      "id": "e35a8a07-95a8-4717-8889-d32940df7b45",
+      "name": "Horizontal scaling of stateless services",
+      "qualityAttributes": [
+        "Performance",
+        "Availability"
+      ],
+      "tactics": [
+        "replication",
+        "load balancing",
+        "circuit breakers"
+      ]
+    }
+  ],
+  "assumptions": [
+    "Traffic grows linearly over the planning horizon.",
+    "Ops team size is fixed."
+  ],
+  "businessDrivers": [
+    "Grow to 10x current traffic without raising on-call burden.",
+    "Meet regulatory requirements for audit and data retention.",
+    "Keep cloud cost inside the approved envelope."
+  ],
+  "constraints": [
+    "Must run in existing Kubernetes clusters.",
+    "Primary datastore is Postgres; changes are expensive."
+  ],
+  "createdAt": "2026-04-20T03:32:31Z",
+  "date": "2026-04-20",
+  "findings": [
+    {
+      "description": "Database connection pool size is sensitive for both performance and availability.",
+      "id": "f9d9e32a-e541-4430-8495-293a77159e06",
+      "kind": "sensitivity-point",
+      "linkedAdrId": "",
+      "relatedApproaches": [],
+      "relatedQualityAttributes": [],
+      "relatedScenarios": [],
+      "severity": "M"
+    }
+  ],
+  "id": "d90778c3-4fab-4816-9237-1d2d0b441eaf",
+  "revisions": [
+    {
+      "author": "architect",
+      "note": "created",
+      "timestamp": "2026-04-20T03:32:31Z"
+    }
+  ],
+  "scenarios": [
+    {
+      "artifact": "query API",
+      "difficulty": "M",
+      "environment": "Production at 2x current peak load",
+      "id": "5ce33d58-01d3-4921-a690-828ba197ea19",
+      "importance": "H",
+      "qualityAttribute": "Performance",
+      "response": "returns a result",
+      "responseMeasure": "p95 < 300 ms",
+      "stimulus": "submits a standard query at peak hours",
+      "stimulusSource": "End user"
+    }
+  ],
+  "status": "draft",
+  "systemContext": "Summarize the system under evaluation in 2–4 sentences: what it does, who uses it, the main external interfaces, and the architectural style.",
+  "tags": [
+    "template"
+  ],
+  "title": "Architecture Tradeoff Analysis for a Local-First AI Assistant with Optional LLM Integration",
+  "updatedAt": "2026-04-20T03:32:31Z",
+  "utilityTree": [
+    {
+      "children": [
+        {
+          "children": [],
+          "description": "User-perceived response time",
+          "id": "922033d2-41c0-48e0-9eb7-a083f93ad541",
+          "name": "Latency",
+          "scenarios": []
+        },
+        {
+          "children": [],
+          "description": "Requests per second",
+          "id": "f2bd8992-3d53-4ec0-8bf1-fc21130603a9",
+          "name": "Throughput",
+          "scenarios": []
+        }
+      ],
+      "description": "Throughput and latency under peak load",
+      "id": "50ab22d7-c35c-4f63-aed2-c50283cc2781",
+      "name": "Performance",
+      "scenarios": []
+    },
+    {
+      "children": [
+        {
+          "children": [],
+          "description": "Yearly availability target",
+          "id": "21a3fd05-223d-4c80-9d7b-d9d684bd72e0",
+          "name": "Uptime",
+          "scenarios": []
+        }
+      ],
+      "description": "Uptime and graceful degradation",
+      "id": "d7616fec-65c9-4a0b-88ae-d656901a10e1",
+      "name": "Availability",
+      "scenarios": []
+    },
+    {
+      "children": [],
+      "description": "Confidentiality, integrity, authn/z",
+      "id": "74c0143c-00ac-43dd-9705-9af1d667d6e3",
+      "name": "Security",
+      "scenarios": []
+    },
+    {
+      "children": [],
+      "description": "Ease of change",
+      "id": "9251756a-64e5-4e02-b139-7b1f88a91b52",
+      "name": "Modifiability",
+      "scenarios": []
+    }
+  ]
+}

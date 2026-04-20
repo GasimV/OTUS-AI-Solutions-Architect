@@ -16,6 +16,7 @@ CMakeCache.txt
 CMakeFiles/
 exports/*.md
 exports/*.json
+logs/*.log
 .git/
 .github/
 Dockerfile

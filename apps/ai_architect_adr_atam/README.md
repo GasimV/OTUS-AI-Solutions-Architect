@@ -20,15 +20,16 @@ local; Gemini mode calls Google's hosted API and requires your own API key.
    - [Windows · MSYS2 UCRT64 (verified)](#windows--msys2-ucrt64-verified)
    - [Windows · MSVC](#windows--msvc)
 4. [Run](#run)
-5. [Stopping the server](#stopping-the-server)
-6. [Docker (Linux container)](#docker-linux-container)
-7. [Command-line options](#command-line-options)
-8. [Runtime AI config](#runtime-ai-config)
-9. [Tests](#tests)
-10. [Data on disk](#data-on-disk)
-11. [REST API (short)](#rest-api-short)
-12. [Extending](#extending)
-13. [Troubleshooting](#troubleshooting)
+5. [Logs](#logs)
+6. [Stopping the server](#stopping-the-server)
+7. [Docker (Linux container)](#docker-linux-container)
+8. [Command-line options](#command-line-options)
+9. [Runtime AI config](#runtime-ai-config)
+10. [Tests](#tests)
+11. [Data on disk](#data-on-disk)
+12. [REST API (short)](#rest-api-short)
+13. [Extending](#extending)
+14. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -189,6 +190,26 @@ MinGW runtime DLLs are available for Gemini API calls.
 On launch the server prints a banner showing the resolved paths, the selected
 AI provider, configured provider targets, and the listen address, ending with
 `Press Ctrl+C to stop.`.
+
+[↑ Back to contents](#contents)
+
+---
+
+## Logs
+
+The server writes runtime logs to both stdout and:
+
+```text
+logs/server.log
+```
+
+Each line includes a UTC timestamp. The server logs startup configuration
+without printing secrets, HTTP method/path/status for requests, and low-level
+HTTP server errors. Request query strings and request bodies are not logged, so
+LLM prompts and API keys are not written to the log.
+
+`logs/*.log` is ignored by git; `logs/.gitkeep` keeps the directory in the
+repository.
 
 [↑ Back to contents](#contents)
 
@@ -408,7 +429,8 @@ See [DESIGN.md](DESIGN.md) for the full reference. Highlights:
 - `GET/POST /api/adr` · `GET/PUT/DELETE /api/adr/:id` · `GET /api/adr/:id/export?format=md|json`
 - `GET/POST /api/atam` · `GET/PUT/DELETE /api/atam/:id` · `GET /api/atam/:id/export?format=md|json`
 - `POST /api/reuse/adrs` · `POST /api/reuse/scenarios`
-- `POST /api/ai/draft-adr` · `POST /api/ai/improve-section` · `POST /api/ai/summarize-context`
+- `POST /api/ai/draft-adr` · `POST /api/ai/draft-atam`
+- `POST /api/ai/improve-section` · `POST /api/ai/summarize-context`
 - `POST /api/ai/suggest-alternatives|consequences|risks`
 - `POST /api/ai/suggest-scenarios`
 - `POST /api/ai/atam/:id/infer-tradeoffs|summary|adr-candidates`

@@ -223,6 +223,16 @@
       <pre id="atam-preview-box" class="preview hidden"></pre>
       <pre id="atam-ai-output" class="ai-output hidden"></pre>
     </section>
+    <aside class="aipanel">
+      <h3>AI assist</h3>
+      <p class="muted">Draft ATAM fields from review notes. The LLM must be reachable.</p>
+      <textarea id="ai-atam-notes" rows="7" placeholder="Business goals, constraints, key quality attributes, known architecture, risks…"></textarea>
+      <div class="form-row">
+        <button id="ai-draft-atam" class="primary">Draft fields</button>
+        <button id="ai-apply-atam-draft">Apply to editor</button>
+      </div>
+      <pre id="ai-atam-output" class="ai-output"></pre>
+    </aside>
   </section>
 </main>
 

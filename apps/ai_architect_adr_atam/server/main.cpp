@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <mutex>
 #include <string>
 
 #include "ai/ai_service.h"
@@ -181,10 +182,23 @@ int main(int argc, char** argv) {
     const auto templates_adr = (cfg.app_root / "templates" / "adr").string();
     const auto templates_atam = (cfg.app_root / "templates" / "atam").string();
     const auto exports_dir = (cfg.app_root / "exports").string();
+    const auto logs_dir = (cfg.app_root / "logs").string();
     const auto web_dir = (cfg.app_root / "web").string();
 
     adra::util::ensure_directory(data_dir.string());
     adra::util::ensure_directory(exports_dir);
+    adra::util::ensure_directory(logs_dir);
+    std::ofstream log_file(logs_dir + "/server.log", std::ios::app);
+    std::mutex log_mutex;
+    auto write_log = [&](const std::string& msg) {
+        std::lock_guard<std::mutex> lk(log_mutex);
+        const auto line = adra::util::now_iso8601_utc() + " " + msg;
+        std::cout << line << "\n";
+        if (log_file) {
+            log_file << line << "\n";
+            log_file.flush();
+        }
+    };
 
     adra::persistence::FileStore store(data_dir.string());
     adra::persistence::AdrRepository adr_repo(store);
@@ -215,6 +229,13 @@ int main(int argc, char** argv) {
 
     adra::http::ServerDeps deps{&adr_service, &atam_service, &templates, &exporter, &reuse, &ai};
     adra::http::register_routes(svr, deps);
+    svr.set_logger([&](const httplib::Request& req, const httplib::Response& res) {
+        write_log(req.method + " " + req.path + " -> " + std::to_string(res.status));
+    });
+    svr.set_error_logger([&](const httplib::Error& err, const httplib::Request* req) {
+        std::string target = req ? (req->method + " " + req->path) : "(no request)";
+        write_log("HTTP error " + std::to_string(static_cast<int>(err)) + " " + target);
+    });
 
     svr.set_mount_point("/", web_dir.c_str());
 
@@ -225,6 +246,7 @@ int main(int argc, char** argv) {
               << "data dir:     " << data_dir.string() << "\n"
               << "templates:    " << templates_adr << " | " << templates_atam << "\n"
               << "exports dir:  " << exports_dir << "\n"
+              << "logs dir:     " << logs_dir << "\n"
               << "ai provider:  " << cfg.ai_provider << " model=" << llm_cfg.model
               << (cfg.ai_enabled ? "" : " (disabled)") << "\n"
               << "ollama:       http://" << cfg.ollama_host << ":" << cfg.ollama_port
@@ -235,6 +257,8 @@ int main(int argc, char** argv) {
               << "listening on: http://" << cfg.host << ":" << cfg.port << "\n"
               << "Open http://" << cfg.host << ":" << cfg.port << "/ in your browser.\n"
               << "Press Ctrl+C to stop.\n" << std::endl;
+    write_log("server starting " + cfg.host + ":" + std::to_string(cfg.port) +
+              " provider=" + cfg.ai_provider + " model=" + llm_cfg.model);
 
     if (!svr.listen(cfg.host.c_str(), cfg.port)) {
         std::cerr << "Failed to bind " << cfg.host << ":" << cfg.port
