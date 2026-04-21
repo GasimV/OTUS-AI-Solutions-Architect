@@ -6509,6 +6509,135 @@ An Event Bus is an architectural pattern (or system) that distributes events to 
 
 - They overlap — but they serve different architectural roles.
 
+**Kafka vs RabbitMQ**
+
+Both **Apache Kafka** and **RabbitMQ** are used for messaging between systems, but they are built with different goals in mind.
+
+**Core Difference**
+
+- **Kafka = high-throughput event streaming platform**
+- **RabbitMQ = flexible message broker with rich routing**
+
+Plain mental model:
+
+- **Kafka** is like a **commit log / event stream** where data is stored and can be replayed.
+- **RabbitMQ** is like a **smart post office** that routes and delivers messages, then removes them once they are handled.
+
+**Kafka: Log-Based Streaming**
+
+Kafka is designed around durable logs called **topics**.
+
+- Messages are stored in **topics/logs**.
+- Data is **persistent by default**.
+- Consumers **pull** data.
+- Consumers track their own position/offset.
+- Built for **horizontal scaling** through partitions.
+- Data can stay even after consumption, depending on retention settings.
+
+Key idea:
+
+> Data stays even after consumption.
+
+**RabbitMQ: Queue-Based Messaging**
+
+RabbitMQ is designed around queues, exchanges, bindings, and routing.
+
+- Uses **queues + exchanges**.
+- Exchanges contain the routing logic.
+- Messages are usually **removed after being consumed and acknowledged**.
+- Consumers typically receive **pushed messages**.
+- Supports flexible routing patterns such as **direct**, **fanout**, **topic**, and **headers**.
+
+Key idea:
+
+> Message is processed and then gone.
+
+**Architecture and Design**
+
+| Area | Kafka | RabbitMQ |
+| --- | --- | --- |
+| Main model | Log/event stream | Queue/message broker |
+| Storage | Durable topic logs | Queues |
+| Routing | Topic + partition model | Exchanges + bindings |
+| Consumption | Consumers pull messages | Broker pushes messages to consumers |
+| Replay | Native, via offsets and retention | Not native for normal queues |
+| Best fit | Streams/events over time | Tasks/messages to process |
+
+**Performance and Throughput**
+
+| Feature | Kafka | RabbitMQ |
+| --- | --- | --- |
+| Throughput | Extremely high; can handle very large event volumes | Moderate to high, depending on workload |
+| Latency | Low, but optimized for throughput | Very low for many queue workloads |
+| Scaling | Excellent; partition-based | Good, but routing and queue design matter |
+| Persistence | Built in and default | Available/configurable |
+
+**Message Handling**
+
+| Behavior | Kafka | RabbitMQ |
+| --- | --- | --- |
+| Replay messages | Yes | No, not native for normal queues |
+| Ordering | Per partition | Per queue |
+| Delivery guarantees | Strong; at-least-once, and exactly-once possible in supported Kafka workflows | Strong; acknowledgement-based |
+| Message retention | Time/size based | Usually until consumed/acknowledged |
+
+**When Kafka Is Better**
+
+- Event streaming: analytics, logs, metrics.
+- Data pipelines: ETL and real-time processing.
+- Microservices event sourcing.
+- High-scale systems with many producers/consumers.
+
+Example:
+
+> Tracking user activity across millions of users.
+
+**When RabbitMQ Is Better**
+
+- Task queues and background jobs.
+- Complex routing logic.
+- RPC-style communication.
+- Systems needing flexible message patterns.
+
+Example:
+
+> Sending emails, processing payments, or running job queues.
+
+**How to Choose**
+
+Pick **Kafka** if:
+
+- You need **high throughput and scalability**.
+- You want to **store and replay events**.
+- You are building **event-driven architecture**.
+- Your data is a **stream**, not just a task.
+
+Pick **RabbitMQ** if:
+
+- You need **smart routing** with exchanges and bindings.
+- You want **simple task/message queues**.
+- You need **low-latency request/response**.
+- You do not need to replay old messages.
+
+**Simple Decision Rule**
+
+- If your system thinks in **events over time**, choose **Kafka**.
+- If your system thinks in **tasks to process**, choose **RabbitMQ**.
+
+**Quick Analogy**
+
+- **Kafka = YouTube playlist**: you can replay events later.
+- **RabbitMQ = food delivery**: once delivered and handled, it is done.
+
+**Active Recall Prompts**
+
+- Why is Kafka described as a commit log?
+- Why is RabbitMQ described as a smart post office?
+- What does Kafka retain that a normal RabbitMQ queue usually does not?
+- When would replaying messages be important?
+- Why does RabbitMQ fit task queues well?
+- What is the difference between Kafka topics/partitions and RabbitMQ exchanges/queues?
+
 [Back to Contents](#contents)
 
 ---
