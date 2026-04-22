@@ -78,6 +78,7 @@
   - [S3-Compatible Object Storage](#s3-compatible-object-storage)
   - [Active-Active vs. Active-Passive Architecture](#active-active-vs-active-passive-architecture)
   - [Load Balancer, VIP & WIP](#load-balancer-vip-wip)
+  - [Container Registries & Sonatype Nexus Repository Manager](#container-registries-sonatype-nexus-repository-manager)
   - [Docker Swarm](#docker-swarm)
   - [Containers vs Virtual Machines Security Basics](#containers-vs-virtual-machines-security-basics)
   - [Serverless and FaaS](#serverless-and-faas)
@@ -4841,6 +4842,209 @@ At a broader traffic-management level, a **WIP (Wide IP)** or equivalent global 
 ```text
 VIP = local service entry IP.
 WIP = global traffic steering across multiple VIPs.
+```
+
+[Back to Contents](#contents)
+
+---
+
+<a id="container-registries-sonatype-nexus-repository-manager"></a>
+
+### Container Registries & Sonatype Nexus Repository Manager
+
+**A container registry** is the place where Docker / OCI images are stored so Kubernetes can pull them during deployment.
+
+In simple terms:
+
+```text
+Build image -> push image to registry -> Kubernetes pulls image from registry
+```
+
+Kubernetes does not run images directly from your laptop. The image must be published somewhere the cluster can reach.
+
+#### Common Container Registry Choices
+
+| **Registry** | **Good fit** |
+| --- | --- |
+| **Docker Hub** | Simple public images, learning, small projects. |
+| **AWS ECR** | Kubernetes clusters running on AWS / EKS. |
+| **Google Artifact Registry / GCR** | Kubernetes clusters running on Google Cloud / GKE. |
+| **Azure Container Registry (ACR)** | Kubernetes clusters running on Azure / AKS. |
+| **GitHub Container Registry (GHCR)** | GitHub-based teams and private package/image publishing. |
+| **Harbor** | Private/self-hosted enterprise registry. |
+| **Sonatype Nexus Repository Manager** | Private/self-hosted registry plus artifact repository management. |
+
+**Good rule**
+
+- Use the registry tied to the same cloud provider as your Kubernetes cluster when possible.
+- Use a private registry for production images.
+- Make sure Kubernetes worker nodes can reach the registry over the network.
+- Use TLS/HTTPS for production registries.
+
+#### Typical Kubernetes Image Publishing Flow
+
+**1. Build the image**
+
+```bash
+docker build -t my-app:v1 .
+```
+
+**2. Tag it with the registry path**
+
+```bash
+docker tag my-app:v1 registry.example.com/my-team/my-app:v1
+```
+
+**3. Push it to the registry**
+
+```bash
+docker push registry.example.com/my-team/my-app:v1
+```
+
+**4. Reference the same image URL in Kubernetes**
+
+```yaml
+containers:
+  - name: my-app
+    image: registry.example.com/my-team/my-app:v1
+```
+
+#### Private Registry Access in Kubernetes
+
+If the registry is private, Kubernetes needs permission to pull the image.
+
+Common approaches:
+
+- **imagePullSecret**: Kubernetes secret containing registry credentials.
+- **Cloud-native IAM integration**: for example EKS with ECR, GKE with Artifact Registry, or AKS with ACR.
+
+**Example imagePullSecret**
+
+```bash
+kubectl create secret docker-registry registry-secret \
+  --docker-server=registry.example.com \
+  --docker-username=YOUR_USER \
+  --docker-password=YOUR_PASSWORD
+```
+
+**Reference it in a Deployment**
+
+```yaml
+spec:
+  imagePullSecrets:
+    - name: registry-secret
+  containers:
+    - name: my-app
+      image: registry.example.com/my-team/my-app:v1
+```
+
+#### Sonatype Nexus Repository Manager
+
+**Nexus Repository Manager** is a repository manager by Sonatype. It can store many artifact types, such as Maven packages, npm packages, raw files, and Docker / OCI images.
+
+For container workloads, Nexus can act as a **private Docker registry**.
+
+That means you can:
+
+- build a Docker image
+- push it to Nexus
+- configure Kubernetes to pull it from Nexus
+
+Kubernetes does not care whether the image comes from Docker Hub, ECR, GHCR, Harbor, or Nexus. It only needs a reachable image URL and valid pull credentials if the registry is private.
+
+#### How Nexus Fits into the Workflow
+
+**1. Create a Docker repository in Nexus**
+
+In Nexus, create a **Docker (hosted)** repository for images you want to publish.
+
+Example registry endpoint:
+
+```text
+nexus.example.com:8082
+```
+
+**2. Tag your local image for Nexus**
+
+```bash
+docker tag my-app nexus.example.com:8082/my-app:v1
+```
+
+**3. Push the image to Nexus**
+
+```bash
+docker push nexus.example.com:8082/my-app:v1
+```
+
+**4. Use the Nexus image in Kubernetes**
+
+```yaml
+containers:
+  - name: my-app
+    image: nexus.example.com:8082/my-app:v1
+```
+
+#### Nexus Authentication for Kubernetes
+
+If Nexus is private, create a Kubernetes Docker registry secret:
+
+```bash
+kubectl create secret docker-registry nexus-secret \
+  --docker-server=nexus.example.com:8082 \
+  --docker-username=YOUR_USER \
+  --docker-password=YOUR_PASSWORD
+```
+
+Then reference it in the workload:
+
+```yaml
+imagePullSecrets:
+  - name: nexus-secret
+```
+
+#### Nexus Repository Types for Docker
+
+| **Nexus Docker repository type** | **Purpose** |
+| --- | --- |
+| **Hosted** | Stores images your team pushes. |
+| **Proxy** | Caches images from an external registry, such as Docker Hub. |
+| **Group** | Combines multiple Docker repositories behind one endpoint. |
+
+For publishing your own application image, use a **Docker hosted** repository.
+
+#### When Nexus Is a Good Choice
+
+Use Nexus when:
+
+- your company already uses Nexus for Maven, npm, or other artifacts
+- you need a private/self-hosted registry
+- you need full control over storage and access
+- your environment is on-premise or restricted
+- you want one artifact platform for application packages and container images
+
+#### When Nexus Is Not Ideal
+
+Nexus may be less convenient when:
+
+- you want the least maintenance possible
+- a managed cloud registry is already integrated with your Kubernetes provider
+- Kubernetes nodes cannot reliably reach the Nexus endpoint
+- TLS/HTTPS and certificate management are not properly configured
+
+#### Production Checklist
+
+- Use private repositories for production images.
+- Use immutable image tags or image digests for controlled deployments.
+- Avoid deploying from `latest` in production.
+- Enable image scanning if available in your registry/toolchain.
+- Ensure Kubernetes nodes can resolve and reach the registry.
+- Configure TLS/HTTPS for the registry.
+- Store registry credentials securely.
+
+**One-Line Summary**
+
+```text
+A container registry is where Kubernetes pulls application images from; Nexus can be used as a private Docker registry when you want self-hosted control over image storage and access.
 ```
 
 [Back to Contents](#contents)
