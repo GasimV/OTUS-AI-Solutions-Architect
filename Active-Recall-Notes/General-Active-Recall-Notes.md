@@ -6639,6 +6639,123 @@ Pick **RabbitMQ** if:
 - Why does RabbitMQ fit task queues well?
 - What is the difference between Kafka topics/partitions and RabbitMQ exchanges/queues?
 
+#### Messaging Patterns: Deduplication, Ordering, Orchestration & Choreography
+
+These patterns are **tool-agnostic distributed systems patterns**. Kafka, RabbitMQ, and other brokers are implementation choices.
+
+##### 1. Deduplication (Idempotency)
+
+**Core idea**
+
+- A consumer receives a message with a `MSG_ID`.
+- The consumer tries to insert that `MSG_ID` into a `PROCESSED_MESSAGE` table.
+- If the insert succeeds, the message is new and can be processed.
+- If the insert fails, the message was already processed and is ignored.
+
+This is a classic **idempotent consumer** pattern.
+
+**Why it exists**
+
+- Message brokers often guarantee **at-least-once delivery**.
+- At-least-once delivery means a message may be delivered more than once.
+- Consumers must therefore be safe to retry.
+
+**Works with**
+
+- **Apache Kafka**
+- **RabbitMQ**
+- **Any message system**
+
+##### 2. Event Ordering
+
+**Core idea**
+
+- Events can arrive out of order.
+- Ordering is usually preserved by routing events for the same entity through the same key, queue, or partition.
+
+**Kafka fit**
+
+- Kafka guarantees ordering **within a partition**.
+- A key determines the partition.
+- Same key → same partition → ordered processing for that entity.
+
+**RabbitMQ fit**
+
+- RabbitMQ can also preserve order per queue / consumer.
+- It is possible, but usually more manual and less explicit than Kafka partitioning.
+
+**Simple rule**
+
+- **Kafka**: natural fit for partitioned event ordering.
+- **RabbitMQ**: possible, but requires careful queue and consumer design.
+
+##### 3. Orchestration (Saga with Orchestrator)
+
+**Core idea**
+
+- A central component coordinates the workflow.
+- It tells each service what to do next.
+
+Example:
+
+```text
+Order → Reserve Credit → Confirm
+```
+
+This is the **orchestrated Saga pattern**.
+
+**Works over**
+
+- **Kafka**
+- **RabbitMQ**
+- **HTTP**
+- **Other communication mechanisms**
+
+##### 4. Choreography (Event-Driven Architecture)
+
+**Core idea**
+
+- Services emit events.
+- Other services listen and react independently.
+- There is no central coordinator controlling every step.
+
+This is a common **Event-Driven Architecture (EDA)** style.
+
+**Works over**
+
+- **Kafka**
+- **RabbitMQ**
+- **Other event/message systems**
+
+##### Big Picture
+
+| **Concept** | **What it is** | **Tool-specific?** |
+| --- | --- | --- |
+| **Deduplication** | Idempotent processing | No |
+| **Ordering** | Event sequencing | Partially; Kafka is especially strong here |
+| **Orchestration** | Central saga control | No |
+| **Choreography** | Event-driven flow | No |
+
+**Tool Mapping**
+
+**Kafka is usually best for**:
+
+- event streams
+- partitioned ordering
+- high-throughput event-driven architecture
+
+**RabbitMQ is usually best for**:
+
+- task queues
+- routing patterns
+- simpler workflows
+
+**Bottom Line**
+
+```text
+These are distributed systems patterns. Kafka and RabbitMQ are just possible tools for implementing them.
+```
+
 [Back to Contents](#contents)
 
 ---
