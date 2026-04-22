@@ -106,6 +106,7 @@
   - [Prometheus & Grafana](#prometheus-grafana)
   - [Event Bus](#event-bus)
   - [Messaging Systems. Message Queue (MQ), Event Bus & Message Broker](#messaging-systems-message-queue-mq-event-bus-message-broker)
+  - [Event Sourcing (ES) & CQRS](#event-sourcing-es-cqrs)
   - [Simple Network Management Protocol (SNMP)](#simple-network-management-protocol-snmp)
   - [syslog](#syslog)
   - [Network Operations Center (NOC)](#network-operations-center-noc)
@@ -6637,6 +6638,112 @@ Pick **RabbitMQ** if:
 - When would replaying messages be important?
 - Why does RabbitMQ fit task queues well?
 - What is the difference between Kafka topics/partitions and RabbitMQ exchanges/queues?
+
+[Back to Contents](#contents)
+
+---
+
+<a id="event-sourcing-es-cqrs"></a>
+
+### Event Sourcing (ES) & CQRS
+
+**Event Sourcing (ES)** and **Command Query Responsibility Segregation (CQRS)** are architectural patterns often used together in scalable, resilient, event-driven systems.
+
+**Core Idea**
+
+- **Event Sourcing** stores state as a history of immutable events.
+- **CQRS** separates write operations from read operations.
+- Together, they let systems scale reads and writes independently and keep a full history of what happened.
+
+#### Event Sourcing: Write Side
+
+With **Event Sourcing**, the system does not only store the latest state.
+
+Instead, it stores every state change as an event:
+
+- `OrderCreated`
+- `ItemAdded`
+- `PaymentReceived`
+- `OrderCancelled`
+
+The current state is rebuilt by replaying events from the beginning, or from a saved snapshot plus later events.
+
+**Example**
+
+```text
+OrderCreated → ItemAdded → ItemAdded → PaymentReceived
+= current order state
+```
+
+#### CQRS: Read Side and Write Side Split
+
+**CQRS** separates two responsibilities:
+
+- **Commands**: change system state.
+- **Queries**: read data without changing system state.
+
+This means the write model can focus on correctness and business rules, while the read model can be optimized for fast queries.
+
+#### Projections / Materialized Views
+
+Events from the event store are consumed to build read-optimized views called **projections** or **materialized views**.
+
+Examples:
+
+- order history view
+- customer balance view
+- fraud dashboard view
+- reporting table
+
+These views can be stored in a database that is optimized for reading, searching, reporting, or analytics.
+
+#### Key Concepts
+
+| **Concept** | **Meaning** |
+| --- | --- |
+| **Event Store** | Append-only storage for event streams. |
+| **Event** | A fact that already happened, such as `OrderCreated`. |
+| **Command** | An instruction that asks the system to change state. |
+| **Query** | A request to read data without changing state. |
+| **Projection** | A read model built from events. |
+| **Eventual Consistency** | The read model may lag slightly behind the latest write. |
+
+#### Benefits
+
+- **High auditability**: the full history of system changes is preserved.
+- **Performance optimization**: read models can be shaped for specific queries.
+- **Independent scaling**: read and write workloads can scale separately.
+- **Historical flexibility**: new views can be created later from old events.
+- **Better debugging**: developers can inspect the exact sequence of business events.
+
+#### Challenges
+
+- **More complexity** than CRUD-style systems.
+- **Steeper learning curve** for teams.
+- **Eventual consistency** must be handled carefully.
+- **Schema evolution** is needed because old events may live forever.
+- **Operational overhead** increases because event stores and projections must be monitored.
+
+#### When to Use
+
+These patterns are useful when the domain is complex and history matters.
+
+Good fits include:
+
+- **banking and finance**
+- **payments**
+- **audit-heavy systems**
+- **order processing**
+- **high-volume asynchronous workflows**
+- **systems needing separate read/write scaling**
+
+Avoid using them only for simple CRUD applications, where the added complexity may not pay off.
+
+**One-Line Summary**
+
+```text
+Event Sourcing records every change as an event, while CQRS separates writes from reads so each side can be modeled, optimized, and scaled independently.
+```
 
 [Back to Contents](#contents)
 
