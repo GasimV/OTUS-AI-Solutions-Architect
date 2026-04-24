@@ -74,6 +74,7 @@
   - [Argo CD](#argo-cd)
     - [Istio vs. Unleash vs. Argo CD](#istio-vs-unleash-vs-argo-cd)
     - [Argo CD vs. GitLab CI/CD](#argo-cd-vs-gitlab-ci-cd)
+  - [Terraform vs Ansible](#terraform-vs-ansible)
   - [Ceph](#ceph)
   - [S3-Compatible Object Storage](#s3-compatible-object-storage)
   - [Active-Active vs. Active-Passive Architecture](#active-active-vs-active-passive-architecture)
@@ -4783,6 +4784,130 @@ These tools belong to the same cloud-native ecosystem, but they operate at diffe
 ```text
 GitLab CI/CD = build + test + deploy
 Argo CD = deploy only, using GitOps
+```
+
+[Back to Contents](#contents)
+
+---
+
+<a id="terraform-vs-ansible"></a>
+
+### Terraform vs Ansible
+
+**Terraform** and **Ansible** are both part of the broad **Infrastructure as Code (IaC)** world, but they solve different problems.
+
+They overlap a little, but they are not interchangeable.
+
+**Core difference in plain words**
+
+- **Terraform** builds infrastructure.
+- **Ansible** configures and manages what runs on that infrastructure.
+
+#### What Terraform Does
+
+**Terraform** is mainly for **infrastructure provisioning**.
+
+Typical things it creates:
+
+- virtual machines
+- networks
+- subnets / VPCs
+- load balancers
+- databases
+- cloud services and managed resources
+
+**Key traits**
+
+- **Declarative**: you describe the desired end state.
+- **Stateful**: Terraform keeps a state file of what it created.
+- **Cloud-focused**: strong fit for AWS, Azure, and GCP.
+- **Plan → Apply workflow**: you preview changes, then apply them.
+
+#### What Ansible Does
+
+**Ansible** is mainly for **configuration management and automation**.
+
+Typical things it handles:
+
+- installing software
+- updating systems
+- deploying applications
+- managing configuration files
+- running operational tasks across many servers
+
+**Key traits**
+
+- **Task-based / procedural**: usually written as a sequence of steps.
+- **Agentless**: usually connects over SSH, without installing a special agent on the target.
+- **YAML-based**: uses human-readable playbooks.
+
+#### Side-by-Side Comparison
+
+| **Feature** | **Terraform** | **Ansible** |
+| --- | --- | --- |
+| **Primary purpose** | Provision infrastructure | Configure and manage systems |
+| **Main style** | Declarative | Mostly procedural / task-based |
+| **State management** | Yes, via state file | No persistent infrastructure state |
+| **Typical use** | Create servers, networks, cloud resources | Install packages, deploy apps, manage config |
+| **Execution style** | `plan` → `apply` | Run playbooks |
+| **Agent requirement** | No agent | Agentless in common SSH-based usage |
+
+#### How They Work Together in Real Projects
+
+In many real systems, teams use both:
+
+**Terraform first**
+
+- create cloud infrastructure
+- create VPCs, subnets, security groups
+- create virtual machines or managed services
+
+**Ansible second**
+
+- log into those machines
+- install software like Nginx or Docker
+- configure the OS
+- deploy the application
+
+**Simple flow**
+
+```text
+Terraform -> creates infrastructure
+Ansible -> configures infrastructure
+```
+
+Example:
+
+```text
+Terraform creates 10 EC2 instances
+Ansible connects to them and sets everything up
+```
+
+#### Common Misconception
+
+It is true that:
+
+- Ansible can provision some infrastructure through modules.
+- Terraform can do a limited amount of configuration.
+
+But in practice:
+
+- using **Ansible** for large-scale infrastructure provisioning becomes awkward
+- using **Terraform** for detailed server configuration is limited and clumsy
+
+They overlap slightly, but they are optimized for different layers.
+
+#### Simple Analogy
+
+```text
+Terraform = architect + construction crew
+Ansible = interior design/setup + maintenance team
+```
+
+**One-Line Summary**
+
+```text
+Terraform creates the infrastructure; Ansible configures what runs on it.
 ```
 
 [Back to Contents](#contents)
