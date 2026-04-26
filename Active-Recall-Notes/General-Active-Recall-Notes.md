@@ -56,6 +56,7 @@
   - [EDR Files](#edr-files)
 - [Cloud, Containers & Platform Infrastructure](#cloud-containers-platform-infrastructure)
   - [K8s (Kubernetes)](#k8s-kubernetes)
+    - [Slurm vs. Kubernetes](#slurm-vs-kubernetes)
     - [Why Kubernetes uses pods (not just containers)](#why-kubernetes-uses-pods-not-just-containers)
     - [Why architects usually avoid drawing nodes](#why-architects-usually-avoid-drawing-nodes)
     - [“Cluster” in deployment diagrams doesn’t always mean Kubernetes cluster](#cluster-in-deployment-diagrams-doesnt-always-mean-kubernetes-cluster)
@@ -3221,6 +3222,105 @@ EDR file = structured Event Data Record export for downstream systems, reconcili
 **Or even simpler**:
 
 - Kubernetes runs pods on nodes inside a cluster.
+
+<a id="slurm-vs-kubernetes"></a>
+
+#### Slurm vs. Kubernetes
+
+**Slurm vs. Kubernetes** is a common comparison in high-performance computing (HPC), AI infrastructure, and cloud-native platforms. Both systems schedule workloads across machines, but they were designed for different operating models:
+
+- **Slurm** = HPC job scheduler for batch, tightly coupled compute jobs.
+- **Kubernetes** = container orchestrator for cloud-native applications and services.
+
+**Core Difference**
+
+| Area | Slurm | Kubernetes |
+| --- | --- | --- |
+| Primary use | HPC workloads, simulations, scientific computing, AI training clusters | Cloud-native apps, APIs, services, CI/CD, platform workloads |
+| Workload type | Batch jobs, MPI jobs, long-running compute jobs | Containers packaged as pods |
+| Scheduling model | Queue-based: submit a job, wait for resources, run, finish | Declarative desired state: define what should run, controllers keep it running |
+| Parallelism | Strong fit for tightly coupled parallel jobs | Strong fit for loosely coupled distributed services and tasks |
+| Networking | HPC interconnects such as InfiniBand and low-latency fabrics | CNI-based pod networking, services, ingress, load balancing |
+| Resource allocation | Explicit nodes, cores, GPUs, memory, partitions, reservations | Pod-level requests/limits, node scheduling, autoscaling policies |
+| Fault handling | A failed job usually fails and must be resubmitted or handled by job logic | Built-in restart, rescheduling, health checks, and self-healing |
+| Scaling model | Cluster capacity is often fixed and planned | Can be elastic with node autoscaling and cloud integration |
+| Ecosystem | HPC-focused: MPI, scientific workloads, batch queues | Cloud-native: Helm, operators, service mesh, GitOps, observability |
+
+**What Slurm Is Best At**
+
+Slurm is strongest in traditional HPC environments where users submit compute jobs to a shared cluster.
+
+- Large-scale simulations: weather, physics, chemistry, genomics.
+- MPI jobs that require tight node-to-node communication.
+- GPU-heavy AI/HPC training jobs where resources must be reserved precisely.
+- Long-running batch jobs with queues, priorities, fair-share scheduling, and reservations.
+
+Think: **"Run this 10,000-core simulation overnight."**
+
+**What Kubernetes Is Best At**
+
+Kubernetes is strongest in modern distributed systems where services should stay available, scale, and recover automatically.
+
+- Microservices, APIs, and web applications.
+- CI/CD workloads and platform automation.
+- Stateless or loosely coupled workloads.
+- Containerized services that need rollout, rollback, service discovery, and self-healing.
+
+Think: **"Keep this API running, scale it automatically, and recover if it crashes."**
+
+**Key Differences Explained**
+
+**1. Workload Model**
+
+- **Slurm**: submit a job -> it runs -> it finishes.
+- **Kubernetes**: declare desired state -> controllers continuously reconcile reality to match it.
+
+**2. Scheduling Philosophy**
+
+- **Slurm**: queue, priority, partition, reservation, fair-share.
+- **Kubernetes**: continuous scheduling and reconciliation through the control plane.
+
+**3. Parallelism**
+
+- **Slurm**: built for tightly coupled parallel jobs, especially MPI.
+- **Kubernetes**: better for loosely coupled services, workers, and containerized jobs.
+
+**4. Resource Control**
+
+- **Slurm**: explicit allocation of nodes, cores, memory, GPUs, and job time.
+- **Kubernetes**: pod scheduling based on requests, limits, labels, taints, tolerations, and affinities.
+
+**5. Fault Handling**
+
+- **Slurm**: if the job fails, the scheduler records failure; recovery is usually handled by the user, job script, checkpointing, or resubmission.
+- **Kubernetes**: failed containers and pods can be restarted or rescheduled automatically, depending on the controller and restart policy.
+
+**Can Slurm and Kubernetes Work Together?**
+
+Yes. Many real platforms use both:
+
+- **Side-by-side**: Slurm runs HPC jobs; Kubernetes runs APIs, dashboards, notebooks, data services, and pipelines.
+- **Kubernetes for batch**: tools such as Volcano, Kueue, Argo Workflows, and Kubeflow can run batch or ML workflows on Kubernetes.
+- **Containerized HPC**: Slurm jobs can run containerized workloads through tools such as Apptainer/Singularity, and some environments experiment with Slurm components on Kubernetes.
+
+**When to Choose Slurm**
+
+- You run MPI-heavy workloads.
+- You need high-performance interconnects and predictable resource reservation.
+- You operate a research, scientific computing, or HPC cluster.
+- Jobs are long-running, batch-oriented, and resource-intensive.
+
+**When to Choose Kubernetes**
+
+- You build cloud-native applications.
+- You need autoscaling, rollouts, self-healing, and service discovery.
+- You deploy containers continuously.
+- Workloads are service-oriented, event-driven, or loosely coupled.
+
+**Simple Analogy**
+
+- **Slurm** = train timetable: scheduled, reserved, capacity-planned runs.
+- **Kubernetes** = ride-sharing dispatch system: dynamic, adaptive, continuously adjusting to demand.
 
 <a id="why-kubernetes-uses-pods-not-just-containers"></a>
 
