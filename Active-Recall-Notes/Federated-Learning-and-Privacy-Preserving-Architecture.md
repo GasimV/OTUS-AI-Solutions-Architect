@@ -728,6 +728,7 @@ Choose the pattern based on:
 
 - Weak clients -> Split Learning or adapters only.
 - Strong clients -> Federated Learning with local training.
+  * **Example**: *each hospital has its own GPU server, trains the full model locally on local patient data for a few epochs, then sends only model updates to the aggregator.*
 
 **Security Needs**
 
