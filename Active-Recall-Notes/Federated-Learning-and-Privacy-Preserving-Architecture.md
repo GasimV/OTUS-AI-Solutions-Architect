@@ -14,8 +14,8 @@
 - [2. Federated Learning Architecture Patterns](#federated-learning-architecture-patterns)
   - [2.1 Cross-Silo Federated Learning](#cross-silo-federated-learning)
   - [2.2 Cross-Device Federated Learning](#cross-device-federated-learning)
-  - [2.3 Centralized FL](#centralized-fl)
-  - [2.4 Decentralized FL](#decentralized-fl)
+  - [2.3 Centralized (Hub-and-Spoke)  FL](#centralized-fl)
+  - [2.4 Decentralized (Peer-to-Peer / Gossip) FL](#decentralized-fl)
   - [2.5 Split Learning](#split-learning)
   - [2.6 FL Frameworks Comparison](#fl-frameworks-comparison)
   - [2.7 Federated Learning Decision Matrix](#federated-learning-decision-matrix)
@@ -470,7 +470,7 @@ Typical aggregation group:
 
 <a id="centralized-fl"></a>
 
-### 2.3 Centralized FL
+### 2.3 Centralized (Hub-and-Spoke) FL
 
 **Pattern:** hub-and-spoke federated learning.
 
@@ -541,7 +541,7 @@ Add redundancy and strong perimeter controls before production deployment.
 
 <a id="decentralized-fl"></a>
 
-### 2.4 Decentralized FL
+### 2.4 Decentralized (Peer-to-Peer / Gossip) FL
 
 **Pattern:** peer-to-peer / gossip federated learning.
 
