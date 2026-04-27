@@ -664,7 +664,7 @@ Combine with:
 | Framework | Positioning | Strengths | Weaknesses |
 | --- | --- | --- | --- |
 | Flower | Industry-standard general-purpose FL | Framework-agnostic, supports PyTorch/TensorFlow, scalable, flexible | SecAgg must be added manually, MLOps integration is DIY |
-| OpenFL | Enterprise / healthcare FL | Built-in PKI authentication, DICOM support, native TEE integration | Tied to Envoy, less flexible topology |
+| OpenFL | Enterprise / healthcare FL | Built-in PKI authentication, DICOM (Digital Imaging and Communications in Medicine; ```.dcm```) support, native TEE integration | Tied to Envoy, less flexible topology |
 | FATE | Heavy enterprise, banks, vertical FL | All-in-one HE/MPC support, strong for vertical FL | Complex monolithic architecture, hard Kubernetes deployment |
 | PySyft | Research / data governance | Data-owner-controlled execution model, simple Python API | Low production performance |
 
