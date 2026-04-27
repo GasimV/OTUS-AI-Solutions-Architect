@@ -576,7 +576,7 @@ Network options:
 
 - High fault tolerance.
 - Can continue even if a significant fraction of nodes fail, for example around 30%.
-- No single point of trust.
+- No single point of trust (ideal for competing banks).
 - Stronger fit for low-trust collaborations.
 
 **Risks**
