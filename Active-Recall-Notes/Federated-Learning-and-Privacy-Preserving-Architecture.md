@@ -1010,10 +1010,10 @@ FHE tooling differs sharply by audience. Some tools target ML engineers, while o
 
 | Tool | Positioning | Strength | Weakness |
 | --- | --- | --- | --- |
-| Zama Concrete ML | Python-first ML-to-FHE workflow | PyTorch/ONNX to FHE compilation | High RAM usage and workload constraints |
-| TenSEAL | CKKS tensor operations | Convenient encrypted tensor abstractions | Semi-maintained and narrower ecosystem |
-| HElib | IBM cryptographic library | Deep cryptographic primitives | Steep learning curve |
-| Lattigo | Go-based FHE library | High concurrency performance | Low ML abstraction level |
+| **Zama Concrete ML** | Python-first ML-to-FHE workflow | PyTorch/ONNX to FHE compilation | High RAM usage and workload constraints |
+| **TenSEAL** | CKKS tensor operations | Convenient encrypted tensor abstractions | Semi-maintained and narrower ecosystem |
+| **HElib** | IBM cryptographic library | Deep cryptographic primitives | Steep learning curve |
+| **Lattigo** | Go-based FHE library | High concurrency performance | Low ML abstraction level |
 
 **Zama Concrete ML**
 
@@ -1215,9 +1215,9 @@ Avoid SMPC when:
 
 | Framework | Positioning | Strength | Weakness |
 | --- | --- | --- | --- |
-| SecretFlow | Enterprise privacy-preserving ML platform | Combines SMPC, FHE, TEE, and FL | Complex architecture |
-| MP-SPDZ | Academic high-performance SMPC | Supports 40+ protocols | Custom language and limited ML convenience |
-| CrypTen | PyTorch-native SMPC | Easy ML integration and GPU acceleration | Slower community development |
+| **SecretFlow** | Enterprise privacy-preserving ML platform | Combines SMPC, FHE, TEE, and FL | Complex architecture |
+| **MP-SPDZ** | Academic high-performance SMPC | Supports 40+ protocols | Custom language and limited ML convenience |
+| **CrypTen** | PyTorch-native SMPC | Easy ML integration and GPU acceleration | Slower community development |
 
 **SecretFlow**
 
