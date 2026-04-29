@@ -803,7 +803,9 @@ High-security deployments commonly add:
 
 ## 3. Advanced PPA Stack for AI Architects
 
-This section covers advanced privacy-preserving architecture concepts that commonly appear in production federated learning and regulated AI systems: gradient compression, vector quantization, Fully Homomorphic Encryption (FHE), Secure Multi-Party Computation (SMPC), secure aggregation, and tooling choices.
+This section covers advanced privacy-preserving architecture concepts that commonly appear in **production federated learning** and **regulated AI systems**: **gradient compression**, **vector quantization**, **Fully Homomorphic Encryption (FHE)**, **Secure Multi-Party Computation (SMPC)**, **secure aggregation**, and tooling choices.
+
+> <mark>Architect focus</mark>: these techniques are not interchangeable. **Compression solves scale**, **FHE solves encrypted computation**, and **SMPC solves multi-party privacy under network constraints**.
 
 [Back to Contents](#contents)
 
@@ -813,109 +815,109 @@ This section covers advanced privacy-preserving architecture concepts that commo
 
 ### 3.1 Gradient Compression and Vector Quantization
 
-Gradient compression is critical for federated learning because raw model updates can be extremely large.
+**Gradient compression is critical for federated learning** because raw model updates can be extremely large.
 
-Example:
+**Scale example**
 
-- 10B parameters in FP32 is approximately 40 GB per training round.
+- **10B parameters in FP32** is approximately **40 GB per training round**.
 
 This creates:
 
-- WAN congestion.
-- Training slowdown.
-- Infeasible cross-device FL for large models.
+- **WAN congestion**.
+- **Training slowdown**.
+- **Infeasible cross-device FL** for large models.
 - Higher cost for cross-silo FL when participants communicate over constrained links.
 
 **Core Problem**
 
-Federated learning repeatedly exchanges model updates, gradients, weights, or adapter parameters. Without compression, network transfer becomes the bottleneck before local training compute does.
+Federated learning repeatedly exchanges **model updates, gradients, weights, or adapter parameters**. Without compression, **network transfer becomes the bottleneck before local training compute does**.
 
-**Sparsification: Top-K Gradients**
+#### 3.1.1 Sparsification: Top-K Gradients
 
-Sparsification sends only the largest gradient values.
+**Sparsification sends only the largest gradient values.**
 
-Typical pattern:
+*Typical pattern:*
 
-- Select the Top-K percent largest gradients.
+- Select the **Top-K percent largest gradients**.
 - Send only those selected values and their positions.
-- Store unsent gradients locally through error accumulation or error feedback.
+- Store unsent gradients locally through **error accumulation** or **error feedback**.
 - Reintroduce accumulated error in later rounds.
 
-Trade-offs:
+*Trade-offs:*
 
 | Benefit | Risk |
 | --- | --- |
-| Major bandwidth reduction | Slower convergence because information is discarded or delayed |
+| **Major bandwidth reduction** | Slower convergence because information is discarded or delayed |
 | Works well with large sparse updates | Requires careful tuning of K and error feedback |
 | Useful for WAN-constrained FL | Can destabilize training under non-IID data |
 
-**Vector Quantization**
+#### 3.1.2 Vector Quantization
 
-Vector quantization reduces numerical precision before transmitting updates.
+**Vector quantization reduces numerical precision before transmitting updates.**
 
-Examples:
+*Examples:*
 
-- FP32 -> INT8.
-- FP32 -> INT4.
-- FP32 -> 1-bit quantization.
+- **FP32 -> INT8**.
+- **FP32 -> INT4**.
+- **FP32 -> 1-bit quantization**.
 
-Impact:
+*Impact:*
 
-- Drastically reduces payload size.
+- **Drastically reduces payload size**.
 - Makes large-scale FL more practical.
 - Can be combined with sparsification and delta updates.
 
-Trade-offs:
+*Trade-offs:*
 
 | Benefit | Risk |
 | --- | --- |
-| Efficient communication | Numerical instability |
-| Lower transfer cost | Accuracy drop if quantization is too aggressive |
+| **Efficient communication** | Numerical instability |
+| **Lower transfer cost** | Accuracy drop if quantization is too aggressive |
 | Better fit for edge devices | Extra quantize/dequantize compute on clients |
 
-**FedLoRA: Parameter-Efficient FL**
+#### 3.1.3 FedLoRA: Parameter-Efficient FL
 
-FedLoRA applies parameter-efficient fine-tuning to federated learning.
+**FedLoRA applies parameter-efficient fine-tuning to federated learning.**
 
-Core idea:
+*Core idea:*
 
 - Freeze the base model.
-- Train only low-rank adapter matrices.
-- Share only adapter updates instead of full model weights.
+- Train only **low-rank adapter matrices**.
+- Share only **adapter updates** instead of full model weights.
 
-Impact:
+*Impact:*
 
-- Payloads can drop from GBs to approximately 10-50 MB.
+- Payloads can drop from **GBs** to approximately **10-50 MB**.
 - Training becomes more feasible on constrained clients.
 - Global aggregation operates over adapter parameters rather than the full model.
 
-Hidden cost:
+*Hidden cost:*
 
-- Quantize/dequantize work shifts compute to client CPU.
+- Quantize/dequantize work shifts compute to **client CPU**.
 - Adapter-only training may not capture all domain shifts.
 - Adapter versioning and compatibility become important architecture concerns.
 
 **Architect Guidance**
 
-Combine:
+<mark>Recommended stack</mark>:
 
-- Quantization.
-- Sparsification.
-- Adapter-based training.
+- **Quantization**.
+- **Sparsification**.
+- **Adapter-based training**.
 - Delta updates.
 - Error feedback.
 
-Always tune:
+*Always tune:*
 
-- Compression ratio vs. convergence speed.
-- Payload size vs. model quality.
+- **Compression ratio vs. convergence speed**.
+- **Payload size vs. model quality**.
 - Client CPU cost vs. network savings.
 - Synchronous round duration vs. dropout risk.
 
-Mandatory fit:
+<mark>Mandatory fit</mark>:
 
-- Cross-device FL.
-- WAN-constrained environments.
+- **Cross-device FL**.
+- **WAN-constrained environments**.
 - Edge personalization.
 - Large model FL where full update exchange is impossible.
 
@@ -927,73 +929,75 @@ Mandatory fit:
 
 ### 3.2 Fully Homomorphic Encryption
 
-Fully Homomorphic Encryption (FHE) allows computation directly on encrypted data.
+**Fully Homomorphic Encryption (FHE)** allows computation directly on **encrypted data**.
 
-Core property:
+**Core property**
 
 ```text
 f(E(x)) = E(f(x))
 ```
 
-Meaning:
+*Meaning:*
 
-- Data is encrypted before processing.
-- The server computes over ciphertext.
-- Decryption is not required during processing.
-- The server does not see plaintext inputs, gradients, or intermediate values.
+- Data is **encrypted before processing**.
+- The server computes over **ciphertext**.
+- Decryption is **not required during processing**.
+- The server does **not** see plaintext inputs, gradients, or intermediate values.
 
 **Value Proposition**
 
-FHE enables zero-trust ML patterns where the compute provider is not trusted with plaintext data.
+FHE enables **zero-trust ML** patterns where the compute provider is not trusted with plaintext data.
 
 It can protect:
 
-- Model inputs.
+- **Model inputs**.
 - Sensitive features.
 - Gradients or updates.
 - Intermediate computation.
 - Inference requests in regulated environments.
 
+> <mark>Key value</mark>: FHE lets the platform compute without becoming a plaintext trust boundary.
+
 **Key Constraints**
 
 | Constraint | Practical impact |
 | --- | --- |
-| Ciphertext expansion | Data often becomes 10x-50x larger |
-| Computation overhead | Workloads can be 100x-10000x slower |
-| Limited operations | Best fit for polynomial arithmetic |
-| Model changes | ReLU and Sigmoid often need polynomial approximations |
+| **Ciphertext expansion** | Data often becomes **10x-50x larger** |
+| **Computation overhead** | Workloads can be **100x-10000x slower** |
+| **Limited operations** | Best fit for polynomial arithmetic |
+| **Model changes** | ReLU and Sigmoid often need polynomial approximations |
 | Operational complexity | Parameter selection, key handling, and performance tuning are specialized |
 
 **Cryptographic Foundation**
 
-FHE is commonly based on lattice cryptography.
+FHE is commonly based on **lattice cryptography**.
 
-Important foundations:
+*Important foundations:*
 
-- Learning With Errors (LWE).
-- Ring Learning With Errors (Ring-LWE).
-- Post-quantum security assumptions.
+- **Learning With Errors (LWE)**.
+- **Ring Learning With Errors (Ring-LWE)**.
+- **Post-quantum security assumptions**.
 
-Common schemes:
+*Common schemes:*
 
 | Scheme | Best fit |
 | --- | --- |
-| CKKS | Approximate arithmetic and floating-point-like ML workloads |
-| BFV | Exact integer arithmetic |
-| BGV | Exact integer arithmetic and batching use cases |
+| **CKKS** | Approximate arithmetic and floating-point-like ML workloads |
+| **BFV** | Exact integer arithmetic |
+| **BGV** | Exact integer arithmetic and batching use cases |
 
 **Architect Guidance**
 
-Use FHE for:
+<mark>Use FHE for</mark>:
 
-- High-sensitivity inference.
-- Regulated environments such as finance, healthcare, and government.
+- **High-sensitivity inference**.
+- **Regulated environments** such as finance, healthcare, and government.
 - Scenarios where the server must not access plaintext.
 - Batch workloads where latency is not strict.
 
-Avoid FHE for:
+<mark>Avoid FHE for</mark>:
 
-- Real-time large-scale training.
+- **Real-time large-scale training**.
 - Latency-sensitive online inference unless the model is very small.
 - Workloads requiring unsupported nonlinear operations without approximation.
 - Systems where operational teams cannot support cryptographic parameter management.
@@ -1006,75 +1010,75 @@ Avoid FHE for:
 
 ### 3.3 FHE Tooling Landscape
 
-FHE tooling differs sharply by audience. Some tools target ML engineers, while others target cryptographers and systems engineers.
+FHE tooling differs sharply by audience. Some tools target **ML engineers**, while others target **cryptographers and systems engineers**.
 
 | Tool | Positioning | Strength | Weakness |
 | --- | --- | --- | --- |
-| **Zama Concrete ML** | Python-first ML-to-FHE workflow | PyTorch/ONNX to FHE compilation | High RAM usage and workload constraints |
+| **Zama Concrete ML** | Python-first ML-to-FHE workflow | **PyTorch/ONNX to FHE compilation** | High RAM usage and workload constraints |
 | **TenSEAL** | CKKS tensor operations | Convenient encrypted tensor abstractions | Semi-maintained and narrower ecosystem |
 | **HElib** | IBM cryptographic library | Deep cryptographic primitives | Steep learning curve |
 | **Lattigo** | Go-based FHE library | High concurrency performance | Low ML abstraction level |
 
-**Zama Concrete ML**
+#### 3.3.1 Zama Concrete ML
 
-Best for:
+*Best for:*
 
 - ML engineers.
 - Python-first teams.
 - Prototyping encrypted inference.
 - Compiling PyTorch or ONNX-style models into FHE-compatible execution.
 
-Trade-off:
+*Trade-off:*
 
-- High RAM usage.
+- **High RAM usage**.
 - Model and operation constraints must be designed around early.
 
-**TenSEAL**
+#### 3.3.2 TenSEAL
 
-Best for:
+*Best for:*
 
 - CKKS tensor operations.
 - Encrypted vector and matrix experimentation.
 - Smaller prototypes that need tensor-style APIs.
 
-Trade-off:
+*Trade-off:*
 
-- Semi-maintained.
+- **Semi-maintained**.
 - Less suitable as the default choice for a large production ML platform.
 
-**HElib**
+#### 3.3.3 HElib
 
-Best for:
+*Best for:*
 
 - Deep cryptographic work.
 - Custom encrypted computation protocols.
 - Teams with cryptography expertise.
 
-Trade-off:
+*Trade-off:*
 
-- Very steep learning curve.
+- **Very steep learning curve**.
 - Low-level primitives require significant engineering.
 
-**Lattigo**
+#### 3.3.4 Lattigo
 
-Best for:
+*Best for:*
 
 - Go-based services.
 - Concurrent cryptographic systems.
 - Custom privacy-preserving infrastructure.
 
-Trade-off:
+*Trade-off:*
 
 - Lower ML abstraction level.
 - Requires more custom system integration.
 
 **Architect Takeaway**
 
-Choose:
+<mark>Choose</mark>:
 
-- Zama when ML pipeline integration is the main goal.
-- Lattigo or HElib when building custom cryptographic systems.
-- TenSEAL when prototyping CKKS tensor operations.
+- **Zama** when ML pipeline integration is the main goal.
+- **Lattigo / HElib** when building custom cryptographic systems.
+- **TenSEAL** when prototyping CKKS tensor operations.
 
 [Back to Contents](#contents)
 
@@ -1084,20 +1088,20 @@ Choose:
 
 ### 3.4 Secure Aggregation with FHE
 
-Secure aggregation protects individual client updates during federated learning aggregation.
+**Secure aggregation protects individual client updates** during federated learning aggregation.
 
-Goal:
+*Goal:*
 
-- Prevent gradient leakage.
+- Prevent **gradient leakage**.
 - Reduce model inversion risk from individual updates.
 - Prevent an honest-but-curious server from inspecting client gradients.
 
 **Protocol Flow**
 
-1. Clients encrypt gradients with a public key.
-2. The server aggregates encrypted gradients through homomorphic summation.
-3. Participants jointly decrypt only the aggregate through threshold cryptography.
-4. The server receives the aggregate update, not individual plaintext updates.
+1. **Clients encrypt gradients** with a public key.
+2. The **server aggregates encrypted gradients** through homomorphic summation.
+3. Participants **jointly decrypt only the aggregate** through threshold cryptography.
+4. The server receives the **aggregate update**, not individual plaintext updates.
 
 ```text
 Client updates -> encrypted gradients -> homomorphic sum -> threshold decrypt aggregate
@@ -1105,33 +1109,33 @@ Client updates -> encrypted gradients -> homomorphic sum -> threshold decrypt ag
 
 **Key Mechanisms**
 
-Threshold cryptography:
+**Threshold cryptography:**
 
 - The private key is split across participants.
-- Shamir Secret Sharing is a common building block.
-- The server cannot decrypt alone.
+- **Shamir Secret Sharing** is a common building block.
+- The server **cannot decrypt alone**.
 - A threshold number of participants must cooperate to decrypt the aggregate.
 
 **Trade-offs**
 
 | Benefit | Cost |
 | --- | --- |
-| Strong protection against individual gradient inspection | Huge network overhead from ciphertext inflation |
-| Server can aggregate without plaintext | Expensive cryptographic compute |
+| **Strong protection against individual gradient inspection** | Huge network overhead from ciphertext inflation |
+| **Server can aggregate without plaintext** | Expensive cryptographic compute |
 | Good fit for higher-trust B2B collaboration | Often overkill for cross-device FL |
 
 **Best Fit**
 
-Use FHE-based secure aggregation for:
+<mark>Use FHE-based secure aggregation for</mark>:
 
-- B2B or cross-silo environments.
+- **B2B or cross-silo environments**.
 - Consortium ML across banks, hospitals, insurers, or regulated enterprises.
 - Cases where participants can tolerate higher latency and cost.
 - Smaller participant groups with strong privacy requirements.
 
-Avoid as the default for:
+<mark>Avoid as the default for</mark>:
 
-- Massive cross-device FL.
+- **Massive cross-device FL**.
 - Mobile networks.
 - Systems with strict round-time limits.
 
@@ -1143,47 +1147,47 @@ Avoid as the default for:
 
 ### 3.5 Secure Multi-Party Computation
 
-Secure Multi-Party Computation (SMPC) allows parties to jointly compute a result without revealing their private inputs.
+**Secure Multi-Party Computation (SMPC)** allows parties to jointly compute a result without revealing their private inputs.
 
-Core idea:
+**Core idea**
 
-- Data is split into shares.
-- Each party computes on shares.
-- No one sees the full private data.
+- Data is split into **shares**.
+- Each party computes on **shares**.
+- No one sees the **full private data**.
 - The final result is reconstructed only when allowed by the protocol.
 
 **Mechanisms**
 
 Common SMPC mechanisms include:
 
-- Secret sharing.
-- Garbled circuits.
-- Oblivious transfer.
+- **Secret sharing**.
+- **Garbled circuits**.
+- **Oblivious transfer**.
 
 **Advantages over FHE**
 
 | Advantage | Meaning |
 | --- | --- |
-| Lower compute cost | Usually much cheaper than FHE for many workloads |
+| **Lower compute cost** | Usually much cheaper than FHE for many workloads |
 | Efficient simple operations | Works well with XOR, AND, additions, and multiplications depending on the protocol |
-| Natural fit for aggregation | Strong fit for secure gradient aggregation |
+| **Natural fit for aggregation** | Strong fit for secure gradient aggregation |
 
 **Critical Limitation: Network Latency Bottleneck**
 
-SMPC requires communication between parties during computation.
+SMPC requires **communication between parties during computation**.
 
-Practical requirements:
+<mark>Practical requirements</mark>:
 
-- Low latency, often less than 20 ms for interactive protocols.
-- LAN, private network, or dedicated WAN.
+- **Low latency**, often less than **20 ms** for interactive protocols.
+- **LAN, private network, or dedicated WAN**.
 - Stable participants.
 - Careful handling of synchronization and dropout.
 
-High-latency global networks can make SMPC impractical because the protocol may require many communication rounds.
+> <mark>Architect warning</mark>: high-latency global networks can make SMPC impractical because the protocol may require many communication rounds.
 
 **Typical Use Cases**
 
-- Secure gradient aggregation.
+- **Secure gradient aggregation**.
 - Cross-party analytics.
 - Classical ML such as logistic regression.
 - Tree-based models such as XGBoost.
@@ -1191,14 +1195,14 @@ High-latency global networks can make SMPC impractical because the protocol may 
 
 **Architect Guidance**
 
-Use SMPC when:
+<mark>Use SMPC when</mark>:
 
-- Strong privacy is needed.
+- **Strong privacy** is needed.
 - Participants are stable.
 - Low-latency networking is available.
 - The workload can tolerate synchronization.
 
-Avoid SMPC when:
+<mark>Avoid SMPC when</mark>:
 
 - Participants are globally distributed over high-latency networks.
 - Dropout is common.
@@ -1215,70 +1219,70 @@ Avoid SMPC when:
 
 | Framework | Positioning | Strength | Weakness |
 | --- | --- | --- | --- |
-| **SecretFlow** | Enterprise privacy-preserving ML platform | Combines SMPC, FHE, TEE, and FL | Complex architecture |
-| **MP-SPDZ** | Academic high-performance SMPC | Supports 40+ protocols | Custom language and limited ML convenience |
-| **CrypTen** | PyTorch-native SMPC | Easy ML integration and GPU acceleration | Slower community development |
+| **SecretFlow** | Enterprise privacy-preserving ML platform | **Combines SMPC, FHE, TEE, and FL** | Complex architecture |
+| **MP-SPDZ** | Academic high-performance SMPC | **Supports 40+ protocols** | Custom language and limited ML convenience |
+| **CrypTen** | PyTorch-native SMPC | **Easy ML integration and GPU acceleration** | Slower community development |
 
-**SecretFlow**
+#### 3.6.1 SecretFlow
 
-Best for:
+*Best for:*
 
 - Enterprise privacy-preserving ML.
 - Architectures that combine SMPC, FHE, TEE, and FL.
 - Production-oriented multi-party collaboration.
 
-Strength:
+*Strength:*
 
-- Broad production-ready privacy stack.
+- **Broad production-ready privacy stack**.
 
-Weakness:
+*Weakness:*
 
-- Complex architecture.
+- **Complex architecture**.
 - Higher operational learning curve.
 
-**MP-SPDZ**
+#### 3.6.2 MP-SPDZ
 
-Best for:
+*Best for:*
 
 - Research.
 - High-performance SMPC experiments.
 - Protocol benchmarking.
 - Custom secure computation systems.
 
-Strength:
+*Strength:*
 
-- Supports more than 40 protocols.
+- Supports **more than 40 protocols**.
 
-Weakness:
+*Weakness:*
 
 - Custom language.
 - No easy ML integration for ordinary ML teams.
 
-**CrypTen**
+#### 3.6.3 CrypTen
 
-Best for:
+*Best for:*
 
 - ML-native prototyping.
 - PyTorch-style secure computation experiments.
 - Teams that want familiar tensor workflows.
 
-Strength:
+*Strength:*
 
-- Easy ML integration.
-- GPU acceleration.
+- **Easy ML integration**.
+- **GPU acceleration**.
 
-Weakness:
+*Weakness:*
 
 - Slowed community development.
 - Requires validation before committing to production use.
 
 **Architect Takeaway**
 
-Choose:
+<mark>Choose</mark>:
 
-- SecretFlow for enterprise privacy-preserving ML platforms.
-- MP-SPDZ for research and high-performance protocol work.
-- CrypTen for ML-native prototyping.
+- **SecretFlow** for enterprise privacy-preserving ML platforms.
+- **MP-SPDZ** for research and high-performance protocol work.
+- **CrypTen** for ML-native prototyping.
 
 [Back to Contents](#contents)
 
@@ -1290,18 +1294,20 @@ Choose:
 
 | Dimension | FHE | SMPC | Compression |
 | --- | --- | --- | --- |
-| Privacy | Very high | High | Low |
-| Compute cost | Extremely high | Moderate | Low |
-| Network cost | Very high | High and synchronization-heavy | Very low |
-| Scalability | Low | Medium and LAN-bound | High |
-| Main use case | Secure inference | Secure training and secure aggregation for smaller groups | FL scaling |
+| **Privacy** | **Very high** | **High** | Low |
+| **Compute cost** | **Extremely high** | Moderate | Low |
+| **Network cost** | **Very high** | High and synchronization-heavy | **Very low** |
+| **Scalability** | Low | Medium and LAN-bound | **High** |
+| **Main use case** | **Secure inference** | **Secure training and secure aggregation for smaller groups** | **FL scaling** |
 
-Architect interpretation:
+**Architect interpretation**
 
-- FHE is strongest when plaintext must never be exposed to the compute server.
-- SMPC is strongest when several parties can jointly compute with low-latency communication.
-- Compression does not provide privacy by itself, but it is often mandatory to make FL feasible.
-- Secure aggregation protects individual updates but still needs governance, authentication, and poisoning defenses.
+- **FHE** is strongest when plaintext must never be exposed to the compute server.
+- **SMPC** is strongest when several parties can jointly compute with low-latency communication.
+- **Compression does not provide privacy by itself**, but it is often mandatory to make FL feasible.
+- **Secure aggregation protects individual updates**, but still needs governance, authentication, and poisoning defenses.
+
+> <mark>Design rule</mark>: do not pick the strongest privacy primitive by default. Pick the strongest primitive the workload, latency budget, and operations team can actually sustain.
 
 [Back to Contents](#contents)
 
@@ -1313,55 +1319,55 @@ Architect interpretation:
 
 **For Cross-Device FL**
 
-Must include:
+<mark>Must include</mark>:
 
-- Quantization.
-- Sparsification.
+- **Quantization**.
+- **Sparsification**.
 - Small local epochs.
 - Dropout-tolerant aggregation.
-- Secure aggregation, usually not FHE.
+- **Secure aggregation, usually not FHE**.
 
-Architect rule:
+*Architect rule:*
 
-- Optimize payload size and dropout tolerance first.
+- **Optimize payload size and dropout tolerance first**.
 - Do not assume mobile or edge clients can handle heavy cryptography.
 
 **For Cross-Silo FL: Enterprise**
 
-Common stack:
+<mark>Common stack</mark>:
 
-- FL.
-- SMPC or FHE for secure aggregation or protected computation.
-- Optional Differential Privacy.
+- **FL**.
+- **SMPC or FHE** for secure aggregation or protected computation.
+- Optional **Differential Privacy**.
 - Strong identity, audit, and governance.
 - Model registry and participant-specific lineage.
 
-Architect rule:
+*Architect rule:*
 
-- Cross-silo FL is as much a governance and operations problem as an ML problem.
+- **Cross-silo FL is as much a governance and operations problem as an ML problem**.
 
 **For Highly Regulated Systems**
 
-Use:
+<mark>Use</mark>:
 
-- FHE for high-sensitivity inference.
-- SMPC for secure training or aggregation.
-- TEE when practical confidential execution is needed with lower overhead.
-- DP for released outputs or model update privacy.
-- Hybrid architecture rather than a single technique.
+- **FHE** for high-sensitivity inference.
+- **SMPC** for secure training or aggregation.
+- **TEE** when practical confidential execution is needed with lower overhead.
+- **DP** for released outputs or model update privacy.
+- **Hybrid architecture** rather than a single technique.
 
 **Golden Rule**
 
 Always balance:
 
-- Privacy.
-- Performance.
-- Network cost.
-- System complexity.
+- **Privacy**.
+- **Performance**.
+- **Network cost**.
+- **System complexity**.
 - Operational maturity.
 - Regulatory evidence.
 
-No single technique wins. Design a hybrid stack from the threat model, workload, latency constraints, and trust boundaries.
+> <mark>Golden rule</mark>: no single technique wins. Design a **hybrid stack** from the **threat model**, **workload**, **latency constraints**, and **trust boundaries**.
 
 [Back to Contents](#contents)
 
