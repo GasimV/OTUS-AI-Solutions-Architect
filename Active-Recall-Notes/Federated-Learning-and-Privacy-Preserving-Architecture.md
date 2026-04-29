@@ -14,18 +14,27 @@
 - [2. Federated Learning Architecture Patterns](#federated-learning-architecture-patterns)
   - [2.1 Cross-Silo Federated Learning](#cross-silo-federated-learning)
   - [2.2 Cross-Device Federated Learning](#cross-device-federated-learning)
-  - [2.3 Centralized (Hub-and-Spoke)  FL](#centralized-fl)
+  - [2.3 Centralized (Hub-and-Spoke) FL](#centralized-fl)
   - [2.4 Decentralized (Peer-to-Peer / Gossip) FL](#decentralized-fl)
   - [2.5 Split Learning](#split-learning)
   - [2.6 FL Frameworks Comparison](#fl-frameworks-comparison)
   - [2.7 Federated Learning Decision Matrix](#federated-learning-decision-matrix)
   - [2.8 Federated Learning Practical Design Checklist](#federated-learning-practical-design-checklist)
-- [3. AI Architect Design and Operations](#ai-architect-design-and-operations)
-  - [3.1 Architect Decision Matrix](#architect-decision-matrix)
-  - [3.2 Reference Privacy-Preserving AI Stack](#reference-privacy-preserving-ai-stack)
-  - [3.3 Common Threats and Mitigations](#common-threats-and-mitigations)
-  - [3.4 Active Recall Prompts](#active-recall-prompts)
-  - [3.5 Final Mental Model](#final-mental-model)
+- [3. Advanced PPA Stack for AI Architects](#advanced-ppa-stack-for-ai-architects)
+  - [3.1 Gradient Compression and Vector Quantization](#gradient-compression-and-vector-quantization)
+  - [3.2 Fully Homomorphic Encryption](#fully-homomorphic-encryption)
+  - [3.3 FHE Tooling Landscape](#fhe-tooling-landscape)
+  - [3.4 Secure Aggregation with FHE](#secure-aggregation-with-fhe)
+  - [3.5 Secure Multi-Party Computation](#secure-multi-party-computation)
+  - [3.6 SMPC Frameworks](#smpc-frameworks)
+  - [3.7 Design Trade-off Summary](#design-trade-off-summary)
+  - [3.8 Architect Playbook](#architect-playbook)
+- [4. AI Architect Design and Operations](#ai-architect-design-and-operations)
+  - [4.1 Architect Decision Matrix](#architect-decision-matrix)
+  - [4.2 Reference Privacy-Preserving AI Stack](#reference-privacy-preserving-ai-stack)
+  - [4.3 Common Threats and Mitigations](#common-threats-and-mitigations)
+  - [4.4 Active Recall Prompts](#active-recall-prompts)
+  - [4.5 Final Mental Model](#final-mental-model)
 
 ---
 
@@ -790,9 +799,577 @@ High-security deployments commonly add:
 
 ---
 
+<a id="advanced-ppa-stack-for-ai-architects"></a>
+
+## 3. Advanced PPA Stack for AI Architects
+
+This section covers advanced privacy-preserving architecture concepts that commonly appear in production federated learning and regulated AI systems: gradient compression, vector quantization, Fully Homomorphic Encryption (FHE), Secure Multi-Party Computation (SMPC), secure aggregation, and tooling choices.
+
+[Back to Contents](#contents)
+
+---
+
+<a id="gradient-compression-and-vector-quantization"></a>
+
+### 3.1 Gradient Compression and Vector Quantization
+
+Gradient compression is critical for federated learning because raw model updates can be extremely large.
+
+Example:
+
+- 10B parameters in FP32 is approximately 40 GB per training round.
+
+This creates:
+
+- WAN congestion.
+- Training slowdown.
+- Infeasible cross-device FL for large models.
+- Higher cost for cross-silo FL when participants communicate over constrained links.
+
+**Core Problem**
+
+Federated learning repeatedly exchanges model updates, gradients, weights, or adapter parameters. Without compression, network transfer becomes the bottleneck before local training compute does.
+
+**Sparsification: Top-K Gradients**
+
+Sparsification sends only the largest gradient values.
+
+Typical pattern:
+
+- Select the Top-K percent largest gradients.
+- Send only those selected values and their positions.
+- Store unsent gradients locally through error accumulation or error feedback.
+- Reintroduce accumulated error in later rounds.
+
+Trade-offs:
+
+| Benefit | Risk |
+| --- | --- |
+| Major bandwidth reduction | Slower convergence because information is discarded or delayed |
+| Works well with large sparse updates | Requires careful tuning of K and error feedback |
+| Useful for WAN-constrained FL | Can destabilize training under non-IID data |
+
+**Vector Quantization**
+
+Vector quantization reduces numerical precision before transmitting updates.
+
+Examples:
+
+- FP32 -> INT8.
+- FP32 -> INT4.
+- FP32 -> 1-bit quantization.
+
+Impact:
+
+- Drastically reduces payload size.
+- Makes large-scale FL more practical.
+- Can be combined with sparsification and delta updates.
+
+Trade-offs:
+
+| Benefit | Risk |
+| --- | --- |
+| Efficient communication | Numerical instability |
+| Lower transfer cost | Accuracy drop if quantization is too aggressive |
+| Better fit for edge devices | Extra quantize/dequantize compute on clients |
+
+**FedLoRA: Parameter-Efficient FL**
+
+FedLoRA applies parameter-efficient fine-tuning to federated learning.
+
+Core idea:
+
+- Freeze the base model.
+- Train only low-rank adapter matrices.
+- Share only adapter updates instead of full model weights.
+
+Impact:
+
+- Payloads can drop from GBs to approximately 10-50 MB.
+- Training becomes more feasible on constrained clients.
+- Global aggregation operates over adapter parameters rather than the full model.
+
+Hidden cost:
+
+- Quantize/dequantize work shifts compute to client CPU.
+- Adapter-only training may not capture all domain shifts.
+- Adapter versioning and compatibility become important architecture concerns.
+
+**Architect Guidance**
+
+Combine:
+
+- Quantization.
+- Sparsification.
+- Adapter-based training.
+- Delta updates.
+- Error feedback.
+
+Always tune:
+
+- Compression ratio vs. convergence speed.
+- Payload size vs. model quality.
+- Client CPU cost vs. network savings.
+- Synchronous round duration vs. dropout risk.
+
+Mandatory fit:
+
+- Cross-device FL.
+- WAN-constrained environments.
+- Edge personalization.
+- Large model FL where full update exchange is impossible.
+
+[Back to Contents](#contents)
+
+---
+
+<a id="fully-homomorphic-encryption"></a>
+
+### 3.2 Fully Homomorphic Encryption
+
+Fully Homomorphic Encryption (FHE) allows computation directly on encrypted data.
+
+Core property:
+
+```text
+f(E(x)) = E(f(x))
+```
+
+Meaning:
+
+- Data is encrypted before processing.
+- The server computes over ciphertext.
+- Decryption is not required during processing.
+- The server does not see plaintext inputs, gradients, or intermediate values.
+
+**Value Proposition**
+
+FHE enables zero-trust ML patterns where the compute provider is not trusted with plaintext data.
+
+It can protect:
+
+- Model inputs.
+- Sensitive features.
+- Gradients or updates.
+- Intermediate computation.
+- Inference requests in regulated environments.
+
+**Key Constraints**
+
+| Constraint | Practical impact |
+| --- | --- |
+| Ciphertext expansion | Data often becomes 10x-50x larger |
+| Computation overhead | Workloads can be 100x-10000x slower |
+| Limited operations | Best fit for polynomial arithmetic |
+| Model changes | ReLU and Sigmoid often need polynomial approximations |
+| Operational complexity | Parameter selection, key handling, and performance tuning are specialized |
+
+**Cryptographic Foundation**
+
+FHE is commonly based on lattice cryptography.
+
+Important foundations:
+
+- Learning With Errors (LWE).
+- Ring Learning With Errors (Ring-LWE).
+- Post-quantum security assumptions.
+
+Common schemes:
+
+| Scheme | Best fit |
+| --- | --- |
+| CKKS | Approximate arithmetic and floating-point-like ML workloads |
+| BFV | Exact integer arithmetic |
+| BGV | Exact integer arithmetic and batching use cases |
+
+**Architect Guidance**
+
+Use FHE for:
+
+- High-sensitivity inference.
+- Regulated environments such as finance, healthcare, and government.
+- Scenarios where the server must not access plaintext.
+- Batch workloads where latency is not strict.
+
+Avoid FHE for:
+
+- Real-time large-scale training.
+- Latency-sensitive online inference unless the model is very small.
+- Workloads requiring unsupported nonlinear operations without approximation.
+- Systems where operational teams cannot support cryptographic parameter management.
+
+[Back to Contents](#contents)
+
+---
+
+<a id="fhe-tooling-landscape"></a>
+
+### 3.3 FHE Tooling Landscape
+
+FHE tooling differs sharply by audience. Some tools target ML engineers, while others target cryptographers and systems engineers.
+
+| Tool | Positioning | Strength | Weakness |
+| --- | --- | --- | --- |
+| Zama Concrete ML | Python-first ML-to-FHE workflow | PyTorch/ONNX to FHE compilation | High RAM usage and workload constraints |
+| TenSEAL | CKKS tensor operations | Convenient encrypted tensor abstractions | Semi-maintained and narrower ecosystem |
+| HElib | IBM cryptographic library | Deep cryptographic primitives | Steep learning curve |
+| Lattigo | Go-based FHE library | High concurrency performance | Low ML abstraction level |
+
+**Zama Concrete ML**
+
+Best for:
+
+- ML engineers.
+- Python-first teams.
+- Prototyping encrypted inference.
+- Compiling PyTorch or ONNX-style models into FHE-compatible execution.
+
+Trade-off:
+
+- High RAM usage.
+- Model and operation constraints must be designed around early.
+
+**TenSEAL**
+
+Best for:
+
+- CKKS tensor operations.
+- Encrypted vector and matrix experimentation.
+- Smaller prototypes that need tensor-style APIs.
+
+Trade-off:
+
+- Semi-maintained.
+- Less suitable as the default choice for a large production ML platform.
+
+**HElib**
+
+Best for:
+
+- Deep cryptographic work.
+- Custom encrypted computation protocols.
+- Teams with cryptography expertise.
+
+Trade-off:
+
+- Very steep learning curve.
+- Low-level primitives require significant engineering.
+
+**Lattigo**
+
+Best for:
+
+- Go-based services.
+- Concurrent cryptographic systems.
+- Custom privacy-preserving infrastructure.
+
+Trade-off:
+
+- Lower ML abstraction level.
+- Requires more custom system integration.
+
+**Architect Takeaway**
+
+Choose:
+
+- Zama when ML pipeline integration is the main goal.
+- Lattigo or HElib when building custom cryptographic systems.
+- TenSEAL when prototyping CKKS tensor operations.
+
+[Back to Contents](#contents)
+
+---
+
+<a id="secure-aggregation-with-fhe"></a>
+
+### 3.4 Secure Aggregation with FHE
+
+Secure aggregation protects individual client updates during federated learning aggregation.
+
+Goal:
+
+- Prevent gradient leakage.
+- Reduce model inversion risk from individual updates.
+- Prevent an honest-but-curious server from inspecting client gradients.
+
+**Protocol Flow**
+
+1. Clients encrypt gradients with a public key.
+2. The server aggregates encrypted gradients through homomorphic summation.
+3. Participants jointly decrypt only the aggregate through threshold cryptography.
+4. The server receives the aggregate update, not individual plaintext updates.
+
+```text
+Client updates -> encrypted gradients -> homomorphic sum -> threshold decrypt aggregate
+```
+
+**Key Mechanisms**
+
+Threshold cryptography:
+
+- The private key is split across participants.
+- Shamir Secret Sharing is a common building block.
+- The server cannot decrypt alone.
+- A threshold number of participants must cooperate to decrypt the aggregate.
+
+**Trade-offs**
+
+| Benefit | Cost |
+| --- | --- |
+| Strong protection against individual gradient inspection | Huge network overhead from ciphertext inflation |
+| Server can aggregate without plaintext | Expensive cryptographic compute |
+| Good fit for higher-trust B2B collaboration | Often overkill for cross-device FL |
+
+**Best Fit**
+
+Use FHE-based secure aggregation for:
+
+- B2B or cross-silo environments.
+- Consortium ML across banks, hospitals, insurers, or regulated enterprises.
+- Cases where participants can tolerate higher latency and cost.
+- Smaller participant groups with strong privacy requirements.
+
+Avoid as the default for:
+
+- Massive cross-device FL.
+- Mobile networks.
+- Systems with strict round-time limits.
+
+[Back to Contents](#contents)
+
+---
+
+<a id="secure-multi-party-computation"></a>
+
+### 3.5 Secure Multi-Party Computation
+
+Secure Multi-Party Computation (SMPC) allows parties to jointly compute a result without revealing their private inputs.
+
+Core idea:
+
+- Data is split into shares.
+- Each party computes on shares.
+- No one sees the full private data.
+- The final result is reconstructed only when allowed by the protocol.
+
+**Mechanisms**
+
+Common SMPC mechanisms include:
+
+- Secret sharing.
+- Garbled circuits.
+- Oblivious transfer.
+
+**Advantages over FHE**
+
+| Advantage | Meaning |
+| --- | --- |
+| Lower compute cost | Usually much cheaper than FHE for many workloads |
+| Efficient simple operations | Works well with XOR, AND, additions, and multiplications depending on the protocol |
+| Natural fit for aggregation | Strong fit for secure gradient aggregation |
+
+**Critical Limitation: Network Latency Bottleneck**
+
+SMPC requires communication between parties during computation.
+
+Practical requirements:
+
+- Low latency, often less than 20 ms for interactive protocols.
+- LAN, private network, or dedicated WAN.
+- Stable participants.
+- Careful handling of synchronization and dropout.
+
+High-latency global networks can make SMPC impractical because the protocol may require many communication rounds.
+
+**Typical Use Cases**
+
+- Secure gradient aggregation.
+- Cross-party analytics.
+- Classical ML such as logistic regression.
+- Tree-based models such as XGBoost.
+- Private set intersection and privacy-preserving record linkage.
+
+**Architect Guidance**
+
+Use SMPC when:
+
+- Strong privacy is needed.
+- Participants are stable.
+- Low-latency networking is available.
+- The workload can tolerate synchronization.
+
+Avoid SMPC when:
+
+- Participants are globally distributed over high-latency networks.
+- Dropout is common.
+- The system requires real-time performance across many parties.
+- Operational complexity cannot be justified.
+
+[Back to Contents](#contents)
+
+---
+
+<a id="smpc-frameworks"></a>
+
+### 3.6 SMPC Frameworks
+
+| Framework | Positioning | Strength | Weakness |
+| --- | --- | --- | --- |
+| SecretFlow | Enterprise privacy-preserving ML platform | Combines SMPC, FHE, TEE, and FL | Complex architecture |
+| MP-SPDZ | Academic high-performance SMPC | Supports 40+ protocols | Custom language and limited ML convenience |
+| CrypTen | PyTorch-native SMPC | Easy ML integration and GPU acceleration | Slower community development |
+
+**SecretFlow**
+
+Best for:
+
+- Enterprise privacy-preserving ML.
+- Architectures that combine SMPC, FHE, TEE, and FL.
+- Production-oriented multi-party collaboration.
+
+Strength:
+
+- Broad production-ready privacy stack.
+
+Weakness:
+
+- Complex architecture.
+- Higher operational learning curve.
+
+**MP-SPDZ**
+
+Best for:
+
+- Research.
+- High-performance SMPC experiments.
+- Protocol benchmarking.
+- Custom secure computation systems.
+
+Strength:
+
+- Supports more than 40 protocols.
+
+Weakness:
+
+- Custom language.
+- No easy ML integration for ordinary ML teams.
+
+**CrypTen**
+
+Best for:
+
+- ML-native prototyping.
+- PyTorch-style secure computation experiments.
+- Teams that want familiar tensor workflows.
+
+Strength:
+
+- Easy ML integration.
+- GPU acceleration.
+
+Weakness:
+
+- Slowed community development.
+- Requires validation before committing to production use.
+
+**Architect Takeaway**
+
+Choose:
+
+- SecretFlow for enterprise privacy-preserving ML platforms.
+- MP-SPDZ for research and high-performance protocol work.
+- CrypTen for ML-native prototyping.
+
+[Back to Contents](#contents)
+
+---
+
+<a id="design-trade-off-summary"></a>
+
+### 3.7 Design Trade-off Summary
+
+| Dimension | FHE | SMPC | Compression |
+| --- | --- | --- | --- |
+| Privacy | Very high | High | Low |
+| Compute cost | Extremely high | Moderate | Low |
+| Network cost | Very high | High and synchronization-heavy | Very low |
+| Scalability | Low | Medium and LAN-bound | High |
+| Main use case | Secure inference | Secure training and secure aggregation for smaller groups | FL scaling |
+
+Architect interpretation:
+
+- FHE is strongest when plaintext must never be exposed to the compute server.
+- SMPC is strongest when several parties can jointly compute with low-latency communication.
+- Compression does not provide privacy by itself, but it is often mandatory to make FL feasible.
+- Secure aggregation protects individual updates but still needs governance, authentication, and poisoning defenses.
+
+[Back to Contents](#contents)
+
+---
+
+<a id="architect-playbook"></a>
+
+### 3.8 Architect Playbook
+
+**For Cross-Device FL**
+
+Must include:
+
+- Quantization.
+- Sparsification.
+- Small local epochs.
+- Dropout-tolerant aggregation.
+- Secure aggregation, usually not FHE.
+
+Architect rule:
+
+- Optimize payload size and dropout tolerance first.
+- Do not assume mobile or edge clients can handle heavy cryptography.
+
+**For Cross-Silo FL: Enterprise**
+
+Common stack:
+
+- FL.
+- SMPC or FHE for secure aggregation or protected computation.
+- Optional Differential Privacy.
+- Strong identity, audit, and governance.
+- Model registry and participant-specific lineage.
+
+Architect rule:
+
+- Cross-silo FL is as much a governance and operations problem as an ML problem.
+
+**For Highly Regulated Systems**
+
+Use:
+
+- FHE for high-sensitivity inference.
+- SMPC for secure training or aggregation.
+- TEE when practical confidential execution is needed with lower overhead.
+- DP for released outputs or model update privacy.
+- Hybrid architecture rather than a single technique.
+
+**Golden Rule**
+
+Always balance:
+
+- Privacy.
+- Performance.
+- Network cost.
+- System complexity.
+- Operational maturity.
+- Regulatory evidence.
+
+No single technique wins. Design a hybrid stack from the threat model, workload, latency constraints, and trust boundaries.
+
+[Back to Contents](#contents)
+
+---
+
 <a id="ai-architect-design-and-operations"></a>
 
-## 3. AI Architect Design and Operations
+## 4. AI Architect Design and Operations
 
 This section groups architecture-level decision tools, reference stack patterns, threats, active recall prompts, and final mental models.
 
@@ -802,7 +1379,7 @@ This section groups architecture-level decision tools, reference stack patterns,
 
 <a id="architect-decision-matrix"></a>
 
-### 3.1 Architect Decision Matrix
+### 4.1 Architect Decision Matrix
 
 | Need | Strong candidate | Why |
 | --- | --- | --- |
@@ -831,7 +1408,7 @@ Decision questions:
 
 <a id="reference-privacy-preserving-ai-stack"></a>
 
-### 3.2 Reference Privacy-Preserving AI Stack
+### 4.2 Reference Privacy-Preserving AI Stack
 
 A practical privacy-preserving AI architecture can be layered like this:
 
@@ -881,7 +1458,7 @@ Architectural controls to include:
 
 <a id="common-threats-and-mitigations"></a>
 
-### 3.3 Common Threats and Mitigations
+### 4.3 Common Threats and Mitigations
 
 | Threat | Example | Mitigation |
 | --- | --- | --- |
@@ -905,7 +1482,7 @@ Important distinction:
 
 <a id="active-recall-prompts"></a>
 
-### 3.4 Active Recall Prompts
+### 4.4 Active Recall Prompts
 
 Use these to test understanding:
 
@@ -924,6 +1501,14 @@ Use these to test understanding:
 13. Why can Split Learning still leak private information?
 14. What does PPRL solve in cross-silo FL?
 15. Which framework would you consider first for enterprise healthcare FL, and why?
+16. Why is gradient compression often mandatory for cross-device FL?
+17. What is the trade-off between compression ratio and convergence speed?
+18. Why does FedLoRA reduce FL payload size?
+19. Why is FHE powerful but usually unsuitable for real-time large-scale training?
+20. What is ciphertext expansion, and why does it matter architecturally?
+21. Why does SMPC become difficult across high-latency networks?
+22. When would SecretFlow be a better fit than MP-SPDZ?
+23. Why does secure aggregation protect updates but not solve poisoning risk?
 
 [Back to Contents](#contents)
 
@@ -931,13 +1516,14 @@ Use these to test understanding:
 
 <a id="final-mental-model"></a>
 
-### 3.5 Final Mental Model
+### 4.5 Final Mental Model
 
 Privacy-preserving AI architecture is a layered design problem:
 
 ```text
 Differential Privacy protects records and outputs.
 Federated Learning protects data locality.
+Compression makes federated update exchange feasible at scale.
 Secure Aggregation protects individual client updates.
 Split Learning separates client and server model computation.
 SMPC protects joint computation between parties.
@@ -953,6 +1539,16 @@ Cross-device = many unreliable devices.
 Centralized FL = simpler hub-and-spoke coordination.
 Decentralized FL = no central trust point, but higher complexity.
 Split Learning = weaker clients can train with server-side model layers.
+```
+
+Advanced PPA architecture choices:
+
+```text
+Compression = scalability tool, not a privacy guarantee.
+FHE = strongest plaintext protection, but high compute and network cost.
+SMPC = strong multi-party privacy, but latency-sensitive.
+FHE secure aggregation = strong fit for smaller cross-silo groups.
+Ordinary secure aggregation = better default for massive cross-device FL.
 ```
 
 No single technique solves everything.
