@@ -351,6 +351,16 @@ This section expands Differential Privacy (DP) from a short definition into an *
 
 **Differential Privacy (DP)** provides a strict mathematical guarantee that the output of a data-processing algorithm should not reveal whether one specific record was present in the training sample.
 
+**Simple illustrative example**
+
+Suppose a hospital wants to publish the average age of patients in a sensitive cohort.
+
+- Without DP, the exact average may shift slightly when one patient is included or removed.
+- An attacker who knows enough background information might use that shift to infer whether a specific person was in the cohort.
+- With DP, the system adds **calibrated noise** to the published average so the result looks almost the same whether that person was included or not.
+
+> <mark>Intuition</mark>: DP makes an individual's presence statistically hard to detect from the released result.
+
 **Core guarantee**
 
 - The algorithm's output should be nearly indistinguishable whether the dataset contains an individual's record or not.
