@@ -11,30 +11,37 @@
   - [1.4 Cryptographic Methods](#cryptographic-methods)
   - [1.5 Hybridization Principle](#hybridization-principle)
   - [1.6 Practical Architecture Guidelines](#practical-architecture-guidelines)
-- [2. Federated Learning Architecture Patterns](#federated-learning-architecture-patterns)
-  - [2.1 Cross-Silo Federated Learning](#cross-silo-federated-learning)
-  - [2.2 Cross-Device Federated Learning](#cross-device-federated-learning)
-  - [2.3 Centralized (Hub-and-Spoke) FL](#centralized-fl)
-  - [2.4 Decentralized (Peer-to-Peer / Gossip) FL](#decentralized-fl)
-  - [2.5 Split Learning](#split-learning)
-  - [2.6 FL Frameworks Comparison](#fl-frameworks-comparison)
-  - [2.7 Federated Learning Decision Matrix](#federated-learning-decision-matrix)
-  - [2.8 Federated Learning Practical Design Checklist](#federated-learning-practical-design-checklist)
-- [3. Advanced PPA Stack for AI Architects](#advanced-ppa-stack-for-ai-architects)
-  - [3.1 Gradient Compression and Vector Quantization](#gradient-compression-and-vector-quantization)
-  - [3.2 Fully Homomorphic Encryption](#fully-homomorphic-encryption)
-  - [3.3 FHE Tooling Landscape](#fhe-tooling-landscape)
-  - [3.4 Secure Aggregation with FHE](#secure-aggregation-with-fhe)
-  - [3.5 Secure Multi-Party Computation](#secure-multi-party-computation)
-  - [3.6 SMPC Frameworks](#smpc-frameworks)
-  - [3.7 Design Trade-off Summary](#design-trade-off-summary)
-  - [3.8 Architect Playbook](#architect-playbook)
-- [4. AI Architect Design and Operations](#ai-architect-design-and-operations)
-  - [4.1 Architect Decision Matrix](#architect-decision-matrix)
-  - [4.2 Reference Privacy-Preserving AI Stack](#reference-privacy-preserving-ai-stack)
-  - [4.3 Common Threats and Mitigations](#common-threats-and-mitigations)
-  - [4.4 Active Recall Prompts](#active-recall-prompts)
-  - [4.5 Final Mental Model](#final-mental-model)
+- [2. Differential Privacy Architecture and Threat Model](#differential-privacy-architecture-and-threat-model)
+  - [2.1 Essence and Mathematical Basis](#dp-essence-and-mathematical-basis)
+  - [2.2 DP Math Visual: Neighboring Datasets](#dp-math-visual-neighboring-datasets)
+  - [2.3 Local vs Global Differential Privacy](#local-vs-global-differential-privacy)
+  - [2.4 Differential Privacy Frameworks and Libraries](#differential-privacy-frameworks-and-libraries)
+  - [2.5 White-Box Threats: Model Inversion and Data Extraction](#white-box-threats-model-inversion-and-data-extraction)
+  - [2.6 Architect Guidance](#dp-architect-guidance)
+- [3. Federated Learning Architecture Patterns](#federated-learning-architecture-patterns)
+  - [3.1 Cross-Silo Federated Learning](#cross-silo-federated-learning)
+  - [3.2 Cross-Device Federated Learning](#cross-device-federated-learning)
+  - [3.3 Centralized (Hub-and-Spoke) FL](#centralized-fl)
+  - [3.4 Decentralized (Peer-to-Peer / Gossip) FL](#decentralized-fl)
+  - [3.5 Split Learning](#split-learning)
+  - [3.6 FL Frameworks Comparison](#fl-frameworks-comparison)
+  - [3.7 Federated Learning Decision Matrix](#federated-learning-decision-matrix)
+  - [3.8 Federated Learning Practical Design Checklist](#federated-learning-practical-design-checklist)
+- [4. Advanced PPA Stack for AI Architects](#advanced-ppa-stack-for-ai-architects)
+  - [4.1 Gradient Compression and Vector Quantization](#gradient-compression-and-vector-quantization)
+  - [4.2 Fully Homomorphic Encryption](#fully-homomorphic-encryption)
+  - [4.3 FHE Tooling Landscape](#fhe-tooling-landscape)
+  - [4.4 Secure Aggregation with FHE](#secure-aggregation-with-fhe)
+  - [4.5 Secure Multi-Party Computation](#secure-multi-party-computation)
+  - [4.6 SMPC Frameworks](#smpc-frameworks)
+  - [4.7 Design Trade-off Summary](#design-trade-off-summary)
+  - [4.8 Architect Playbook](#architect-playbook)
+- [5. AI Architect Design and Operations](#ai-architect-design-and-operations)
+  - [5.1 Architect Decision Matrix](#architect-decision-matrix)
+  - [5.2 Reference Privacy-Preserving AI Stack](#reference-privacy-preserving-ai-stack)
+  - [5.3 Common Threats and Mitigations](#common-threats-and-mitigations)
+  - [5.4 Active Recall Prompts](#active-recall-prompts)
+  - [5.5 Final Mental Model](#final-mental-model)
 
 ---
 
@@ -326,9 +333,331 @@ Always evaluate:
 
 ---
 
+<a id="differential-privacy-architecture-and-threat-model"></a>
+
+## 2. Differential Privacy Architecture and Threat Model
+
+This section expands Differential Privacy (DP) from a short definition into an **AI Architect-level design tool**: the mathematical guarantee, Local vs. Global DP patterns, implementation frameworks, and the white-box attacks DP is meant to reduce.
+
+> <mark>Architect focus</mark>: DP is a **statistical privacy guarantee**, not an encryption scheme. It limits what can be inferred from outputs, gradients, or aggregates by adding calibrated noise.
+
+[Back to Contents](#contents)
+
+---
+
+<a id="dp-essence-and-mathematical-basis"></a>
+
+### 2.1 Essence and Mathematical Basis
+
+**Differential Privacy (DP)** provides a strict mathematical guarantee that the output of a data-processing algorithm should not reveal whether one specific record was present in the training sample.
+
+**Core guarantee**
+
+- The algorithm's output should be nearly indistinguishable whether the dataset contains an individual's record or not.
+- This protects against **membership inference** and reduces the signal available for reconstruction-style attacks.
+- The guarantee is expressed over *neighboring datasets*: two datasets that differ by one record.
+
+**Mathematical form**
+
+```text
+Pr[M(D) in R] <= e^epsilon Pr[M(D') in R] + delta
+```
+
+Where:
+
+| Symbol | Meaning | Architect interpretation |
+| --- | --- | --- |
+| **M** | Randomized mechanism or algorithm | Training, query, aggregation, or reporting process |
+| **D** | Dataset with one individual's record | Original dataset |
+| **D'** | Neighboring dataset without that record | Comparison dataset differing by one record |
+| **R** | Possible output region | Model update, statistic, prediction range, or report output |
+| **epsilon** | Privacy budget | Allowed information leakage |
+| **delta** | Failure probability | Probability the privacy guarantee may not hold |
+
+**Protection mechanism**
+
+DP usually adds **calibrated statistical noise** during:
+
+- Query answering.
+- Aggregate analytics.
+- Gradient computation.
+- DP-SGD training.
+- Final reporting or model release.
+
+> <mark>Key point</mark>: noise must be calibrated to **sensitivity**, not added arbitrarily. Random noise without privacy accounting is not DP.
+
+[Back to Contents](#contents)
+
+---
+
+<a id="dp-math-visual-neighboring-datasets"></a>
+
+### 2.2 DP Math Visual: Neighboring Datasets
+
+The DP mental model compares two output distributions:
+
+- **D**: dataset **with** an individual's record.
+- **D'**: dataset **without** that record.
+
+If the output distributions are very close, an attacker cannot confidently infer whether the individual participated in the dataset.
+
+**Privacy budget effect**
+
+| Parameter | Effect |
+| --- | --- |
+| **Smaller epsilon** | Stronger privacy, more noise, lower utility |
+| **Larger epsilon** | Weaker privacy, less noise, higher utility |
+| **Smaller delta** | Lower probability of privacy failure |
+| **Larger delta** | Higher probability that the guarantee can fail |
+
+**Architect interpretation**
+
+- **epsilon** controls the allowed distinguishability between outputs.
+- **delta** captures a small probability of privacy failure.
+- DP does not promise zero leakage; it bounds leakage mathematically.
+- Privacy budget must be tracked across repeated queries, epochs, training rounds, and releases.
+
+> <mark>Design warning</mark>: privacy budget is cumulative. Repeated access to DP-protected outputs can spend privacy even if each individual query looks safe.
+
+[Back to Contents](#contents)
+
+---
+
+<a id="local-vs-global-differential-privacy"></a>
+
+### 2.3 Local vs Global Differential Privacy
+
+Differential Privacy can be applied before data leaves the client or centrally after collection/aggregation.
+
+| Pattern | Trust model | Where noise is added | Accuracy impact | Best fit |
+| --- | --- | --- | --- | --- |
+| **Local DP (LDP)** | **Trust nobody** | Client side before sending data | High accuracy loss | Untrusted server, telemetry, client-side privacy |
+| **Global DP / Central DP** | **Trusted aggregator** | Server side during aggregation or release | Lower accuracy loss | Trusted platform, data warehouse, ML training pipeline |
+
+#### 2.3.1 Local Differential Privacy
+
+**Local Differential Privacy (LDP)** adds noise on the client side before data is transmitted.
+
+**Flow**
+
+```text
+Raw client data -> local noise -> noisy data/update -> server
+```
+
+**Properties**
+
+- Server receives already-noisy data.
+- Provides maximum protection against an untrusted server.
+- Does not require trusting the aggregator with clean client values.
+
+**Trade-off**
+
+- <mark>Strong privacy, weaker utility</mark>.
+- Model convergence can degrade sharply because every client update is noisy before aggregation.
+
+**Architect fit**
+
+- Mobile telemetry.
+- Browser or device analytics.
+- Cross-device FL where the server should not see clean client updates.
+- Systems where client trust boundary is stronger than server trust.
+
+#### 2.3.2 Global Differential Privacy
+
+**Global DP**, also called **Central DP**, adds noise after the trusted aggregator receives clean data, gradients, or updates.
+
+**Flow**
+
+```text
+Clean client data/updates -> trusted aggregator -> calibrated noise -> DP output/model
+```
+
+**Properties**
+
+- Requires trust in the aggregator.
+- Preserves higher model utility.
+- Easier to tune for analytics and DP-SGD pipelines.
+
+**Trade-off**
+
+- <mark>Better utility, stronger trust assumption</mark>.
+- The aggregator becomes a sensitive security boundary.
+
+**Architect fit**
+
+- Enterprise ML platforms.
+- Internal analytics.
+- Data warehouse reporting.
+- Cross-silo FL with strong governance and a trusted coordinator.
+
+[Back to Contents](#contents)
+
+---
+
+<a id="differential-privacy-frameworks-and-libraries"></a>
+
+### 2.4 Differential Privacy Frameworks and Libraries
+
+DP tooling depends on whether the workload is **deep learning**, **Google ecosystem ML**, or **analytics over warehouses**.
+
+| Library | Primary use case | Strength | Architect caveat |
+| --- | --- | --- | --- |
+| **Opacus (PyTorch)** | Deep learning with **DP-SGD** | Efficient per-sample gradient computation through `einsum`; high performance in the PyTorch ecosystem | Best for PyTorch training, not general SQL analytics |
+| **TensorFlow Privacy** | ML in the Google / TensorFlow ecosystem | XLA-driven JIT compilation and advanced vectorization | Best when the team is already standardized on TensorFlow |
+| **Google DP Core (C++ / Java / Go)** | Data warehouse analytics | DP analytics for SQL-style queries and aggregations such as `COUNT` and `SUM` | Not oriented toward neural network gradient training |
+
+#### 2.4.1 Opacus
+
+**Best for:**
+
+- PyTorch deep learning.
+- DP-SGD training.
+- Per-sample gradient clipping and noise injection.
+
+**Why it matters**
+
+- DP-SGD requires computing and clipping gradients per sample.
+- Opacus is optimized for this workflow in PyTorch.
+
+#### 2.4.2 TensorFlow Privacy
+
+**Best for:**
+
+- TensorFlow-based ML training.
+- Google ecosystem teams.
+- DP-SGD with TensorFlow-native execution.
+
+**Why it matters**
+
+- Can benefit from XLA JIT compilation and vectorization.
+- Fits teams already invested in TensorFlow production pipelines.
+
+#### 2.4.3 Google DP Core
+
+**Best for:**
+
+- Analytics pipelines.
+- Data warehouses.
+- SQL-style aggregate releases.
+
+**Why it matters**
+
+- Strong fit for DP-protected `COUNT`, `SUM`, and similar aggregate queries.
+- Not the default choice for gradient-based neural network training.
+
+> <mark>Selection rule</mark>: choose the DP library by workload first. **PyTorch training -> Opacus**, **TensorFlow training -> TensorFlow Privacy**, **analytics -> Google DP Core**.
+
+[Back to Contents](#contents)
+
+---
+
+<a id="white-box-threats-model-inversion-and-data-extraction"></a>
+
+### 2.5 White-Box Threats: Model Inversion and Data Extraction
+
+White-box threats assume the attacker has access to sensitive internals such as gradients, model updates, or training signals.
+
+> <mark>Threat model</mark>: access to raw gradients can be close to access to the original training data.
+
+**Core vulnerability**
+
+Gradients are derivatives of the loss function. They can preserve mathematical traces of the training samples that produced them.
+
+In plain terms:
+
+- Raw client gradients can contain sensitive properties of the local training batch.
+- Plain federated learning does **not** automatically prevent gradient leakage.
+- Attackers can reconstruct examples or infer membership from exposed updates.
+
+**Model Inversion / DLG**
+
+Deep Leakage from Gradients (DLG) is an iterative reconstruction attack.
+
+Simplified objective:
+
+```text
+argmin_x || gradient_L(x) - gradient_L(x*) || + regularization
+```
+
+Meaning:
+
+- The attacker guesses a candidate input.
+- Computes gradients for the guess.
+- Compares guessed gradients to observed real gradients.
+- Iteratively improves the guess until reconstructed data matches the gradient signal.
+
+**Attack vectors**
+
+| Attack | What it tries to learn | Typical signal |
+| --- | --- | --- |
+| **Model inversion / DLG** | Reconstruct input samples or sensitive attributes | Raw gradients or model updates |
+| **Data extraction** | Recover memorized training data | Model behavior, gradients, or outputs |
+| **Membership inference** | Infer whether a record was in training data | Black-box outputs or white-box internals |
+
+**Architectural mitigation**
+
+DP-SGD reduces leakage by:
+
+- **Clipping gradients** to bound sensitivity.
+- Adding **calibrated noise** to gradients.
+- Tracking the privacy budget over training.
+
+Other controls should be layered with DP:
+
+- Secure aggregation.
+- Update access control.
+- Gradient logging restrictions.
+- Model output limiting.
+- Robust aggregation and poisoning detection.
+
+> <mark>Important distinction</mark>: DP reduces information leakage from gradients, but it does not replace secure aggregation, access control, or model integrity defenses.
+
+[Back to Contents](#contents)
+
+---
+
+<a id="dp-architect-guidance"></a>
+
+### 2.6 Architect Guidance
+
+**When to use DP**
+
+- Releasing aggregate statistics over sensitive data.
+- Training models on personal, health, financial, or enterprise-confidential datasets.
+- Reducing membership inference and reconstruction risk.
+- Protecting model updates in FL with DP-SGD.
+- Publishing reports or dashboards where repeated queries could leak individual records.
+
+**Key design decisions**
+
+| Decision | Architect question |
+| --- | --- |
+| **Local vs Global DP** | Do you trust the aggregator with clean data or updates? |
+| **epsilon / delta** | What privacy-utility trade-off is acceptable to compliance and product owners? |
+| **Noise location** | Should noise be added on client, server, gradient, aggregate, or output layer? |
+| **Budget accounting** | How will budget be tracked across epochs, rounds, queries, and releases? |
+| **Utility validation** | How will the team prove the model or analytics remain useful? |
+
+**Common architecture patterns**
+
+| Pattern | Privacy benefit | Trade-off |
+| --- | --- | --- |
+| **Local DP + FL** | Server never receives clean client updates | Lower convergence and model utility |
+| **Central DP-SGD** | Stronger utility with formal training privacy | Requires trusted training pipeline |
+| **Secure Aggregation + DP** | Aggregator cannot inspect individual updates and final updates are noise-protected | Higher complexity |
+| **DP Analytics Layer** | Safer aggregate reporting | Privacy budget must be enforced across queries |
+
+**Golden rule**
+
+> <mark>DP is not a checkbox</mark>: the privacy claim is only meaningful if the system has calibrated noise, sensitivity control, privacy accounting, and governance over repeated access.
+
+[Back to Contents](#contents)
+
+---
+
 <a id="federated-learning-architecture-patterns"></a>
 
-## 2. Federated Learning Architecture Patterns
+## 3. Federated Learning Architecture Patterns
 
 This section focuses on the major federated learning deployment patterns and frameworks an AI Architect should understand when designing distributed privacy-preserving training systems.
 
@@ -338,7 +667,7 @@ This section focuses on the major federated learning deployment patterns and fra
 
 <a id="cross-silo-federated-learning"></a>
 
-### 2.1 Cross-Silo Federated Learning
+### 3.1 Cross-Silo Federated Learning
 
 **Pattern:** enterprise / B2B federated learning.
 
@@ -407,7 +736,7 @@ Architectural concerns:
 
 <a id="cross-device-federated-learning"></a>
 
-### 2.2 Cross-Device Federated Learning
+### 3.2 Cross-Device Federated Learning
 
 **Pattern:** B2C / edge federated learning.
 
@@ -479,7 +808,7 @@ Typical aggregation group:
 
 <a id="centralized-fl"></a>
 
-### 2.3 Centralized (Hub-and-Spoke) FL
+### 3.3 Centralized (Hub-and-Spoke) FL
 
 **Pattern:** hub-and-spoke federated learning.
 
@@ -550,7 +879,7 @@ Add redundancy and strong perimeter controls before production deployment.
 
 <a id="decentralized-fl"></a>
 
-### 2.4 Decentralized (Peer-to-Peer / Gossip) FL
+### 3.4 Decentralized (Peer-to-Peer / Gossip) FL
 
 **Pattern:** peer-to-peer / gossip federated learning.
 
@@ -609,7 +938,7 @@ Avoid unless there is a strong requirement for decentralization. Most production
 
 <a id="split-learning"></a>
 
-### 2.5 Split Learning
+### 3.5 Split Learning
 
 **Pattern:** SplitNN / split model training.
 
@@ -668,7 +997,7 @@ Combine with:
 
 <a id="fl-frameworks-comparison"></a>
 
-### 2.6 FL Frameworks Comparison
+### 3.6 FL Frameworks Comparison
 
 | Framework | Positioning | Strengths | Weaknesses |
 | --- | --- | --- | --- |
@@ -707,7 +1036,7 @@ Combine with:
 
 <a id="federated-learning-decision-matrix"></a>
 
-### 2.7 Federated Learning Decision Matrix
+### 3.7 Federated Learning Decision Matrix
 
 Choose the pattern based on:
 
@@ -755,7 +1084,7 @@ High-security deployments commonly add:
 
 <a id="federated-learning-practical-design-checklist"></a>
 
-### 2.8 Federated Learning Practical Design Checklist
+### 3.8 Federated Learning Practical Design Checklist
 
 **Define**
 
@@ -801,7 +1130,7 @@ High-security deployments commonly add:
 
 <a id="advanced-ppa-stack-for-ai-architects"></a>
 
-## 3. Advanced PPA Stack for AI Architects
+## 4. Advanced PPA Stack for AI Architects
 
 This section covers advanced privacy-preserving architecture concepts that commonly appear in **production federated learning** and **regulated AI systems**: **gradient compression**, **vector quantization**, **Fully Homomorphic Encryption (FHE)**, **Secure Multi-Party Computation (SMPC)**, **secure aggregation**, and tooling choices.
 
@@ -813,7 +1142,7 @@ This section covers advanced privacy-preserving architecture concepts that commo
 
 <a id="gradient-compression-and-vector-quantization"></a>
 
-### 3.1 Gradient Compression and Vector Quantization
+### 4.1 Gradient Compression and Vector Quantization
 
 **Gradient compression is critical for federated learning** because raw model updates can be extremely large.
 
@@ -832,7 +1161,7 @@ This creates:
 
 Federated learning repeatedly exchanges **model updates, gradients, weights, or adapter parameters**. Without compression, **network transfer becomes the bottleneck before local training compute does**.
 
-#### 3.1.1 Sparsification: Top-K Gradients
+#### 4.1.1 Sparsification: Top-K Gradients
 
 **Sparsification sends only the largest gradient values.**
 
@@ -851,7 +1180,7 @@ Federated learning repeatedly exchanges **model updates, gradients, weights, or 
 | Works well with large sparse updates | Requires careful tuning of K and error feedback |
 | Useful for WAN-constrained FL | Can destabilize training under non-IID data |
 
-#### 3.1.2 Vector Quantization
+#### 4.1.2 Vector Quantization
 
 **Vector quantization reduces numerical precision before transmitting updates.**
 
@@ -875,7 +1204,7 @@ Federated learning repeatedly exchanges **model updates, gradients, weights, or 
 | **Lower transfer cost** | Accuracy drop if quantization is too aggressive |
 | Better fit for edge devices | Extra quantize/dequantize compute on clients |
 
-#### 3.1.3 FedLoRA: Parameter-Efficient FL
+#### 4.1.3 FedLoRA: Parameter-Efficient FL
 
 **FedLoRA applies parameter-efficient fine-tuning to federated learning.**
 
@@ -927,7 +1256,7 @@ Federated learning repeatedly exchanges **model updates, gradients, weights, or 
 
 <a id="fully-homomorphic-encryption"></a>
 
-### 3.2 Fully Homomorphic Encryption
+### 4.2 Fully Homomorphic Encryption
 
 **Fully Homomorphic Encryption (FHE)** allows computation directly on **encrypted data**.
 
@@ -1022,7 +1351,7 @@ Short distinction:
 
 <a id="fhe-tooling-landscape"></a>
 
-### 3.3 FHE Tooling Landscape
+### 4.3 FHE Tooling Landscape
 
 FHE tooling differs sharply by audience. Some tools target **ML engineers**, while others target **cryptographers and systems engineers**.
 
@@ -1033,7 +1362,7 @@ FHE tooling differs sharply by audience. Some tools target **ML engineers**, whi
 | **HElib** | IBM cryptographic library | Deep cryptographic primitives | Steep learning curve |
 | **Lattigo** | Go-based FHE library | High concurrency performance | Low ML abstraction level |
 
-#### 3.3.1 Zama Concrete ML
+#### 4.3.1 Zama Concrete ML
 
 *Best for:*
 
@@ -1047,7 +1376,7 @@ FHE tooling differs sharply by audience. Some tools target **ML engineers**, whi
 - **High RAM usage**.
 - Model and operation constraints must be designed around early.
 
-#### 3.3.2 TenSEAL
+#### 4.3.2 TenSEAL
 
 *Best for:*
 
@@ -1060,7 +1389,7 @@ FHE tooling differs sharply by audience. Some tools target **ML engineers**, whi
 - **Semi-maintained**.
 - Less suitable as the default choice for a large production ML platform.
 
-#### 3.3.3 HElib
+#### 4.3.3 HElib
 
 *Best for:*
 
@@ -1073,7 +1402,7 @@ FHE tooling differs sharply by audience. Some tools target **ML engineers**, whi
 - **Very steep learning curve**.
 - Low-level primitives require significant engineering.
 
-#### 3.3.4 Lattigo
+#### 4.3.4 Lattigo
 
 *Best for:*
 
@@ -1100,7 +1429,7 @@ FHE tooling differs sharply by audience. Some tools target **ML engineers**, whi
 
 <a id="secure-aggregation-with-fhe"></a>
 
-### 3.4 Secure Aggregation with FHE
+### 4.4 Secure Aggregation with FHE
 
 **Secure aggregation protects individual client updates** during federated learning aggregation.
 
@@ -1159,7 +1488,7 @@ Client updates -> encrypted gradients -> homomorphic sum -> threshold decrypt ag
 
 <a id="secure-multi-party-computation"></a>
 
-### 3.5 Secure Multi-Party Computation
+### 4.5 Secure Multi-Party Computation
 
 **Secure Multi-Party Computation (SMPC)** allows parties to jointly compute a result without revealing their private inputs.
 
@@ -1229,7 +1558,7 @@ SMPC requires **communication between parties during computation**.
 
 <a id="smpc-frameworks"></a>
 
-### 3.6 SMPC Frameworks
+### 4.6 SMPC Frameworks
 
 | Framework | Positioning | Strength | Weakness |
 | --- | --- | --- | --- |
@@ -1237,7 +1566,7 @@ SMPC requires **communication between parties during computation**.
 | **MP-SPDZ** | Academic high-performance SMPC | **Supports 40+ protocols** | Custom language and limited ML convenience |
 | **CrypTen** | PyTorch-native SMPC | **Easy ML integration and GPU acceleration** | Slower community development |
 
-#### 3.6.1 SecretFlow
+#### 4.6.1 SecretFlow
 
 *Best for:*
 
@@ -1254,7 +1583,7 @@ SMPC requires **communication between parties during computation**.
 - **Complex architecture**.
 - Higher operational learning curve.
 
-#### 3.6.2 MP-SPDZ
+#### 4.6.2 MP-SPDZ
 
 *Best for:*
 
@@ -1272,7 +1601,7 @@ SMPC requires **communication between parties during computation**.
 - Custom language.
 - No easy ML integration for ordinary ML teams.
 
-#### 3.6.3 CrypTen
+#### 4.6.3 CrypTen
 
 *Best for:*
 
@@ -1304,7 +1633,7 @@ SMPC requires **communication between parties during computation**.
 
 <a id="design-trade-off-summary"></a>
 
-### 3.7 Design Trade-off Summary
+### 4.7 Design Trade-off Summary
 
 | Dimension | FHE | SMPC | Compression |
 | --- | --- | --- | --- |
@@ -1329,7 +1658,7 @@ SMPC requires **communication between parties during computation**.
 
 <a id="architect-playbook"></a>
 
-### 3.8 Architect Playbook
+### 4.8 Architect Playbook
 
 **For Cross-Device FL**
 
@@ -1389,7 +1718,7 @@ Always balance:
 
 <a id="ai-architect-design-and-operations"></a>
 
-## 4. AI Architect Design and Operations
+## 5. AI Architect Design and Operations
 
 This section groups architecture-level decision tools, reference stack patterns, threats, active recall prompts, and final mental models.
 
@@ -1399,7 +1728,7 @@ This section groups architecture-level decision tools, reference stack patterns,
 
 <a id="architect-decision-matrix"></a>
 
-### 4.1 Architect Decision Matrix
+### 5.1 Architect Decision Matrix
 
 | Need | Strong candidate | Why |
 | --- | --- | --- |
@@ -1428,7 +1757,7 @@ Decision questions:
 
 <a id="reference-privacy-preserving-ai-stack"></a>
 
-### 4.2 Reference Privacy-Preserving AI Stack
+### 5.2 Reference Privacy-Preserving AI Stack
 
 A practical privacy-preserving AI architecture can be layered like this:
 
@@ -1478,7 +1807,7 @@ Architectural controls to include:
 
 <a id="common-threats-and-mitigations"></a>
 
-### 4.3 Common Threats and Mitigations
+### 5.3 Common Threats and Mitigations
 
 | Threat | Example | Mitigation |
 | --- | --- | --- |
@@ -1502,7 +1831,7 @@ Important distinction:
 
 <a id="active-recall-prompts"></a>
 
-### 4.4 Active Recall Prompts
+### 5.4 Active Recall Prompts
 
 Use these to test understanding:
 
@@ -1529,6 +1858,11 @@ Use these to test understanding:
 21. Why does SMPC become difficult across high-latency networks?
 22. When would SecretFlow be a better fit than MP-SPDZ?
 23. Why does secure aggregation protect updates but not solve poisoning risk?
+24. What do epsilon and delta control in Differential Privacy?
+25. Why does Local DP usually reduce model utility more than Global DP?
+26. Which DP framework is the best fit for PyTorch DP-SGD training?
+27. Why can access to raw gradients enable model inversion or data extraction?
+28. Why is privacy budget accounting mandatory across repeated queries or training rounds?
 
 [Back to Contents](#contents)
 
@@ -1536,12 +1870,15 @@ Use these to test understanding:
 
 <a id="final-mental-model"></a>
 
-### 4.5 Final Mental Model
+### 5.5 Final Mental Model
 
 Privacy-preserving AI architecture is a layered design problem:
 
 ```text
 Differential Privacy protects records and outputs.
+Local DP protects data before it leaves the client, but reduces utility.
+Global DP preserves more utility, but requires a trusted aggregator.
+DP-SGD clips gradients and adds calibrated noise to reduce leakage.
 Federated Learning protects data locality.
 Compression makes federated update exchange feasible at scale.
 Secure Aggregation protects individual client updates.
@@ -1564,6 +1901,10 @@ Split Learning = weaker clients can train with server-side model layers.
 Advanced PPA architecture choices:
 
 ```text
+epsilon/delta = privacy budget and failure probability.
+Opacus = PyTorch DP-SGD.
+TensorFlow Privacy = TensorFlow DP-SGD.
+Google DP Core = DP analytics and aggregate queries.
 Compression = scalability tool, not a privacy guarantee.
 FHE = strongest plaintext protection, but high compute and network cost.
 SMPC = strong multi-party privacy, but latency-sensitive.
