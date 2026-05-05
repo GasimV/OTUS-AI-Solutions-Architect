@@ -596,6 +596,60 @@ Meaning:
 - Compares guessed gradients to observed real gradients.
 - Iteratively improves the guess until reconstructed data matches the gradient signal.
 
+**Simple illustrative example with math**
+
+Assume a tiny one-parameter linear model:
+
+$$
+\hat{y} = w x
+$$
+
+$$
+L = \frac{1}{2}(\hat{y} - y)^2
+$$
+
+The gradient with respect to the model weight is:
+
+$$
+\nabla_w L = (w x - y)x
+$$
+
+Suppose the attacker sees:
+
+$$
+w = 2,\quad y = 1,\quad \nabla_w L_{\text{observed}} = 3
+$$
+
+The attacker searches for an input `x` whose gradient matches `3`:
+
+$$
+(2x - 1)x = 3
+$$
+
+$$
+2x^2 - x - 3 = 0
+$$
+
+Solving:
+
+$$
+x = 1.5 \quad \text{or} \quad x = -1
+$$
+
+If the valid data range is known to be:
+
+$$
+x \ge 0
+$$
+
+then the likely reconstructed input is:
+
+$$
+x = 1.5
+$$
+
+> <mark>Intuition</mark>: the gradient acts like an equation containing information about the original input. DLG generalizes this idea by optimizing candidate inputs until their gradients match the observed gradients.
+
 **Attack vectors**
 
 | Attack | What it tries to learn | Typical signal |
