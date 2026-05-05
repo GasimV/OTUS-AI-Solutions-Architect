@@ -980,6 +980,20 @@ FHE is commonly based on **lattice cryptography**.
 
 *Common schemes:*
 
+The acronyms are named after the scheme authors:
+
+| Scheme | Full name | Main data type |
+| --- | --- | --- |
+| **CKKS** | **Cheon-Kim-Kim-Song** | Approximate real/complex numbers |
+| **BFV** | **Brakerski-Fan-Vercauteren** | Exact integers |
+| **BGV** | **Brakerski-Gentry-Vaikuntanathan** | Exact integers |
+
+Short distinction:
+
+- **CKKS**: best for ML because it supports *approximate arithmetic*, which fits floating-point-style workloads.
+- **BFV**: best when you need *exact integer arithmetic*.
+- **BGV**: also exact integer arithmetic, often used in more cryptography-heavy systems with batching and leveled FHE designs.
+
 | Scheme | Best fit |
 | --- | --- |
 | **CKKS** | Approximate arithmetic and floating-point-like ML workloads |
