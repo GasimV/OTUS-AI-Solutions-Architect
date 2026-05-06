@@ -2134,13 +2134,13 @@ For FHE, SMPC, secure aggregation, and DP-SGD workloads, Kubernetes must handle:
 **Reference Kubernetes control plane**
 
 ```text
-Ingress + mTLS + rate limiting
-  -> Kubernetes API / admission controllers
-  -> worker node
+Ingress + mTLS + rate limiting (Gateways, Certificates, Throttling)
+  -> K8s Master Node & Admission Controllers (API Server, Scheduler, Controller Manager)
+  -> Worker Node
   -> StatefulSet pod
-  -> FL worker / aggregator / FHE math module
-  -> sidecar observability exporter
-  -> service mesh / network policy layer
+  -> FL worker / aggregator / FHE math module (MatMul)
+  -> sidecar observability exporter (Prometheus Exporter/Envoy)
+  -> service mesh / network policy layer (Cilium/eBPF)
 ```
 
 #### 6.1.1 Network Layer and Isolation
