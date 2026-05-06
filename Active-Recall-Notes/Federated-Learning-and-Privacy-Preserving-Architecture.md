@@ -36,12 +36,18 @@
   - [4.6 SMPC Frameworks](#smpc-frameworks)
   - [4.7 Design Trade-off Summary](#design-trade-off-summary)
   - [4.8 Architect Playbook](#architect-playbook)
-- [5. AI Architect Design and Operations](#ai-architect-design-and-operations)
-  - [5.1 Architect Decision Matrix](#architect-decision-matrix)
-  - [5.2 Reference Privacy-Preserving AI Stack](#reference-privacy-preserving-ai-stack)
-  - [5.3 Common Threats and Mitigations](#common-threats-and-mitigations)
-  - [5.4 Active Recall Prompts](#active-recall-prompts)
-  - [5.5 Final Mental Model](#final-mental-model)
+- [5. PPA Threats, Byzantine Resilience, and Key Management](#ppa-threats-byzantine-resilience-and-key-management)
+  - [5.1 Data Poisoning vs Model Poisoning](#data-poisoning-vs-model-poisoning)
+  - [5.2 Privacy vs Byzantine Fault Tolerance](#privacy-vs-byzantine-fault-tolerance)
+  - [5.3 ZKP Bridge for Secure Aggregation and BFT](#zkp-bridge-for-secure-aggregation-and-bft)
+  - [5.4 KMS for On-Premise PPA](#kms-for-on-premise-ppa)
+  - [5.5 Architect Checklist](#ppa-security-architect-checklist)
+- [6. AI Architect Design and Operations](#ai-architect-design-and-operations)
+  - [6.1 Architect Decision Matrix](#architect-decision-matrix)
+  - [6.2 Reference Privacy-Preserving AI Stack](#reference-privacy-preserving-ai-stack)
+  - [6.3 Common Threats and Mitigations](#common-threats-and-mitigations)
+  - [6.4 Active Recall Prompts](#active-recall-prompts)
+  - [6.5 Final Mental Model](#final-mental-model)
 
 ---
 
@@ -1780,9 +1786,320 @@ Always balance:
 
 ---
 
+<a id="ppa-threats-byzantine-resilience-and-key-management"></a>
+
+## 5. PPA Threats, Byzantine Resilience, and Key Management
+
+This section covers production security concerns that appear once privacy-preserving AI moves from theory to distributed systems: **data poisoning**, **model poisoning**, the conflict between **secure aggregation** and **Byzantine Fault Tolerance (BFT)**, **Zero-Knowledge Proofs (ZKP)** as a bridge pattern, and **on-premise KMS** for sovereign infrastructure.
+
+> <mark>Architect focus</mark>: privacy mechanisms can hide malicious behavior. A production PPA system must protect both **confidentiality** and **model integrity**.
+
+[Back to Contents](#contents)
+
+---
+
+<a id="data-poisoning-vs-model-poisoning"></a>
+
+### 5.1 Data Poisoning vs Model Poisoning
+
+Poisoning attacks try to maliciously influence the global model in distributed or federated systems.
+
+| Threat | Attack surface | Mechanism | Typical scale | Main risk |
+| --- | --- | --- | --- | --- |
+| **Data Poisoning** | Local training data | Client corrupts labels, features, or inserts hidden triggers | Usually local; needs compromise of many nodes for global impact | Backdoors, biased model behavior, degraded accuracy |
+| **Model Poisoning** | Model update or weight vector | Attacker directly modifies the update before sending it to the server | Can be global if the update is scaled aggressively | Global model drift, backdoors, failed convergence |
+
+#### 5.1.1 Data Poisoning
+
+**Data poisoning** corrupts the local sample before or during client-side training.
+
+Common mechanisms:
+
+- Incorrect local labels.
+- Malicious feature manipulation.
+- Hidden **backdoor triggers** embedded into raw data.
+- Local data distribution manipulation.
+
+**Example**
+
+An attacker adds images with a small trigger pattern and labels them as a target class. The global model may later classify any input with that trigger as the attacker's chosen class.
+
+**Architect interpretation**
+
+- The attack is often local at first.
+- It can still affect the global model if enough compromised clients participate.
+- Cross-silo consortium settings are exposed if one or more high-weight participants are compromised.
+
+#### 5.1.2 Model Poisoning
+
+**Model poisoning** modifies the update itself instead of only poisoning the data.
+
+Common mechanisms:
+
+- Direct weight vector modification.
+- Sending a malicious gradient/update to the aggregator.
+- Scaling the malicious update so it dominates honest updates.
+
+**Scaling attack**
+
+In simple FedAvg:
+
+```text
+global_update = average(client_updates)
+```
+
+An attacker can submit:
+
+```text
+malicious_update_scaled = alpha * malicious_update
+```
+
+If `alpha` is large enough, the malicious update can overpower many honest updates.
+
+**Architect interpretation**
+
+- Model poisoning is often more dangerous than data poisoning.
+- It directly targets the aggregation step.
+- Secure aggregation may hide individual malicious updates from the server.
+
+<mark>Protection layer</mark>:
+
+- Do not rely on simple averaging only.
+- Add robust aggregation: **Krum**, **Median**, **Trimmed Mean**, **Bulyan**.
+- Filter outliers through vector norms, cosine distance, or update similarity.
+- Add client reputation, attestation, and anomaly detection where appropriate.
+
+[Back to Contents](#contents)
+
+---
+
+<a id="privacy-vs-byzantine-fault-tolerance"></a>
+
+### 5.2 Privacy vs Byzantine Fault Tolerance
+
+There is an architectural paradox in privacy-preserving FL:
+
+| Requirement | What it wants | Conflict |
+| --- | --- | --- |
+| **Secure Aggregation (FHE / SMPC)** | Hide individual gradients or updates from the server | Server cannot inspect updates for malicious behavior |
+| **Byzantine Fault Tolerance (BFT)** | Detect and reject malicious or outlier updates | Server usually needs to analyze individual update vectors |
+
+**Secure aggregation side**
+
+Secure aggregation physically or cryptographically prevents the server from seeing individual gradients.
+
+Benefits:
+
+- Protects against an honest-but-curious aggregator.
+- Reduces model inversion risk from raw gradients.
+- Improves confidentiality of client updates.
+
+Risk:
+
+- Malicious encrypted updates may be hidden until after aggregation.
+
+**BFT side**
+
+Byzantine-resilient aggregation requires detecting suspicious updates.
+
+Typical checks:
+
+- Vector norm bounds.
+- Cosine distance from expected direction.
+- Similarity to other client updates.
+- Robust aggregation against outliers.
+- Client behavior history.
+
+Risk:
+
+- These checks may require access to individual update vectors.
+
+> <mark>Engineering compromise</mark>: should the architect disable secure aggregation to inspect updates, or trust clients and risk poisoning? Production systems need a bridge between these goals.
+
+[Back to Contents](#contents)
+
+---
+
+<a id="zkp-bridge-for-secure-aggregation-and-bft"></a>
+
+### 5.3 ZKP Bridge for Secure Aggregation and BFT
+
+**Zero-Knowledge Proofs (ZKP)** can bridge privacy and Byzantine resilience by proving that an encrypted update satisfies safety rules without revealing the update itself.
+
+**Core idea**
+
+The client sends:
+
+- An encrypted update vector.
+- A cryptographic proof that the update follows required constraints.
+
+The server verifies:
+
+- The proof is valid.
+- The encrypted update is safe to include.
+- The raw vector remains hidden.
+
+**Example: clipping-bound proof**
+
+A client proves:
+
+```text
+||update|| <= clipping_bound
+```
+
+without revealing:
+
+```text
+update
+```
+
+**State-of-the-art zero-trust pattern**
+
+```text
+Client update
+  -> clip update locally
+  -> encrypt update
+  -> generate ZKP that norm <= clipping bound
+  -> server verifies proof
+  -> server rejects invalid ciphertexts
+  -> homomorphic / secure aggregation
+```
+
+**ZKP options**
+
+| Tooling family | Role |
+| --- | --- |
+| **zk-SNARK** | Compact proof that constraints are satisfied |
+| **FHE / SMPC** | Keeps update encrypted or secret-shared during aggregation |
+| **Robust aggregation / BFT** | Rejects unsafe or suspicious updates |
+
+**Architect interpretation**
+
+- ZKP lets the server enforce safety constraints before aggregation.
+- The server can reject malicious ciphertexts before homomorphic summation.
+- The system preserves confidentiality while adding integrity checks.
+
+<mark>Design rule</mark>:
+
+- Use **ZKP + secure aggregation** when individual updates must remain hidden but the server must enforce update validity.
+- Keep the proved constraints simple: norm bounds, range checks, clipping compliance, and format correctness.
+- Avoid overly complex proof circuits unless the latency budget and engineering maturity can support them.
+
+[Back to Contents](#contents)
+
+---
+
+<a id="kms-for-on-premise-ppa"></a>
+
+### 5.4 KMS for On-Premise PPA
+
+In privacy-preserving AI, key management is a security foundation.
+
+> <mark>Critical risk</mark>: compromising the private key for FHE or secure aggregation can destroy the confidentiality of the entire system.
+
+**Why public cloud KMS may be insufficient**
+
+Closed or sovereign infrastructure may require:
+
+- Physical control of key material.
+- Legal and regulatory isolation.
+- On-premise operation.
+- Local auditability.
+- No dependency on AWS KMS, Google Cloud KMS, or other external cloud control planes.
+
+**Reference on-premise KMS architecture**
+
+| Component | Role |
+| --- | --- |
+| **Self-hosted KMS** | Central key lifecycle system, for example HashiCorp Vault or CryptoPro |
+| **Storage engine** | High-availability clustered storage, for example Consul or Raft |
+| **Hardware Security Module (HSM)** | Secure start, root key protection, auto-unseal pattern |
+| **PKI transit secrets** | Dynamic certificate issuance and node certificate rotation |
+| **Audit logging** | Evidence for key access, rotation, and administrative actions |
+
+**Key lifecycle responsibilities**
+
+- Key generation.
+- Key storage.
+- Key rotation.
+- Key revocation.
+- Certificate issuance.
+- Node identity validation.
+- Secure backup and recovery.
+- Access audit and separation of duties.
+
+**Threshold secret sharing**
+
+Architect rule:
+
+> <mark>Never store the full decryption key on one server.</mark>
+
+Use threshold secret sharing so:
+
+- The full private key is split across several trusted parties or services.
+- No single server can decrypt alone.
+- A threshold number of key shares is required for sensitive operations.
+- Compromise of one node does not compromise the whole system.
+
+**On-premise deployment guidance**
+
+Use on-premise KMS when:
+
+- The deployment is sovereign, air-gapped, or legally restricted.
+- FHE / secure aggregation private keys protect regulated workloads.
+- Participants require independent control over key shares.
+- Audit and physical custody matter.
+
+Avoid weak patterns:
+
+- Storing private keys in application configuration.
+- Keeping full decryption keys on the aggregation server.
+- Sharing static certificates across nodes.
+- Manual key rotation without audit trails.
+- Depending on public cloud KMS in closed regulated circuits where it is physically or legally unavailable.
+
+[Back to Contents](#contents)
+
+---
+
+<a id="ppa-security-architect-checklist"></a>
+
+### 5.5 Architect Checklist
+
+**For poisoning resistance**
+
+- Use robust aggregation instead of simple averaging.
+- Add update clipping and norm bounds.
+- Monitor cosine similarity and vector outliers.
+- Track participant behavior over time.
+- Separate malicious-update detection from privacy accounting.
+
+**For privacy and BFT together**
+
+- Expect secure aggregation to reduce server visibility.
+- Use ZKP to prove update validity without revealing raw updates.
+- Keep proof constraints practical and cheap to verify.
+- Decide explicitly whether confidentiality or poisoning detection is the higher priority for each deployment.
+
+**For key management**
+
+- Use self-hosted KMS for closed or sovereign infrastructure.
+- Protect root keys with HSM-backed auto-unseal.
+- Rotate node certificates dynamically through PKI transit secrets.
+- Split critical decryption keys through threshold secret sharing.
+- Audit every key access and administrative operation.
+
+**Golden rule**
+
+> <mark>PPA security is two-dimensional</mark>: encryption protects **confidentiality**, while BFT and robust aggregation protect **model integrity**. A secure architecture needs both.
+
+[Back to Contents](#contents)
+
+---
+
 <a id="ai-architect-design-and-operations"></a>
 
-## 5. AI Architect Design and Operations
+## 6. AI Architect Design and Operations
 
 This section groups architecture-level decision tools, reference stack patterns, threats, active recall prompts, and final mental models.
 
@@ -1792,7 +2109,7 @@ This section groups architecture-level decision tools, reference stack patterns,
 
 <a id="architect-decision-matrix"></a>
 
-### 5.1 Architect Decision Matrix
+### 6.1 Architect Decision Matrix
 
 | Need | Strong candidate | Why |
 | --- | --- | --- |
@@ -1805,6 +2122,9 @@ This section groups architecture-level decision tools, reference stack patterns,
 | Public release of statistics | DP | Limits inference about any single record |
 | Mobile/edge personalization | Cross-device FL | Local data stays on device |
 | Multi-hospital or multi-bank model training | Cross-silo FL + secure aggregation | Collaboration without data pooling |
+| Detect malicious client updates | Robust aggregation / BFT | Reduces poisoning risk from compromised participants |
+| Validate encrypted updates before aggregation | ZKP + secure aggregation | Proves constraints without revealing vectors |
+| Protect FHE / SecAgg keys on-premise | Self-hosted KMS + HSM + threshold sharing | Prevents one server from holding the full decryption key |
 
 Decision questions:
 
@@ -1821,7 +2141,7 @@ Decision questions:
 
 <a id="reference-privacy-preserving-ai-stack"></a>
 
-### 5.2 Reference Privacy-Preserving AI Stack
+### 6.2 Reference Privacy-Preserving AI Stack
 
 A practical privacy-preserving AI architecture can be layered like this:
 
@@ -1831,7 +2151,9 @@ Data owners / clients
   -> optional local Differential Privacy
   -> local training or feature computation
   -> encrypted transport
+  -> optional ZKP update validity proof
   -> secure aggregation with SMPC or TEE
+  -> robust aggregation and anomaly detection
   -> global model update
   -> model validation and privacy accounting
   -> model registry
@@ -1858,10 +2180,13 @@ Architectural controls to include:
 - Authentication and authorization for clients.
 - Signed model updates.
 - Encrypted communication.
+- ZKP validity proofs for encrypted updates where needed.
 - Secure aggregation.
+- Robust aggregation and BFT controls.
 - Privacy budget tracking.
 - Model update anomaly detection.
 - Poisoning and backdoor detection.
+- KMS, HSM, certificate rotation, and threshold key sharing.
 - Model registry with lineage.
 - Audit logs for training rounds and releases.
 
@@ -1871,7 +2196,7 @@ Architectural controls to include:
 
 <a id="common-threats-and-mitigations"></a>
 
-### 5.3 Common Threats and Mitigations
+### 6.3 Common Threats and Mitigations
 
 | Threat | Example | Mitigation |
 | --- | --- | --- |
@@ -1879,11 +2204,14 @@ Architectural controls to include:
 | Gradient reconstruction | Model updates reveal training examples | Secure aggregation, DP, update clipping |
 | Model inversion | Attacker reconstructs sensitive attributes from model behavior | DP, access control, output restriction |
 | Activation inversion | Split Learning activations reveal client inputs | DP on activations, encryption, TEE, activation minimization |
+| Data poisoning | Client corrupts local labels, features, or backdoor triggers | Data validation, participant monitoring, robust evaluation |
+| Model poisoning | Client sends malicious scaled update | Robust aggregation, clipping, BFT, ZKP validity proofs |
 | Malicious client update | Client poisons global model | Robust aggregation, anomaly detection, client attestation |
 | Honest-but-curious aggregator | Aggregator inspects individual updates | SMPC secure aggregation, TEE |
 | Cloud operator exposure | Cloud infrastructure can observe sensitive processing | TEE, encryption, strict access control |
 | Output leakage | Released analytics reveal individuals | DP, k-anonymity-style checks, suppression policies |
 | Key compromise | Encrypted data becomes readable | Key management, rotation, HSM/KMS, separation of duties |
+| Full decryption key concentration | One server compromise exposes encrypted updates | Threshold secret sharing, HSM-backed KMS, split custody |
 
 Important distinction:
 
@@ -1895,7 +2223,7 @@ Important distinction:
 
 <a id="active-recall-prompts"></a>
 
-### 5.4 Active Recall Prompts
+### 6.4 Active Recall Prompts
 
 Use these to test understanding:
 
@@ -1927,6 +2255,12 @@ Use these to test understanding:
 26. Which DP framework is the best fit for PyTorch DP-SGD training?
 27. Why can access to raw gradients enable model inversion or data extraction?
 28. Why is privacy budget accounting mandatory across repeated queries or training rounds?
+29. What is the difference between data poisoning and model poisoning?
+30. Why can secure aggregation make Byzantine attack detection harder?
+31. How can ZKP help combine secure aggregation with update validity checks?
+32. Why is simple FedAvg vulnerable to scaled malicious updates?
+33. Why should full FHE or secure aggregation private keys not live on one server?
+34. What roles do KMS, HSM, Raft/Consul storage, and PKI transit secrets play in on-premise PPA?
 
 [Back to Contents](#contents)
 
@@ -1934,7 +2268,7 @@ Use these to test understanding:
 
 <a id="final-mental-model"></a>
 
-### 5.5 Final Mental Model
+### 6.5 Final Mental Model
 
 Privacy-preserving AI architecture is a layered design problem:
 
@@ -1946,6 +2280,9 @@ DP-SGD clips gradients and adds calibrated noise to reduce leakage.
 Federated Learning protects data locality.
 Compression makes federated update exchange feasible at scale.
 Secure Aggregation protects individual client updates.
+Robust aggregation and BFT protect the global model from poisoned updates.
+ZKP can prove encrypted update validity without exposing the update.
+KMS/HSM/threshold sharing protect cryptographic root trust.
 Split Learning separates client and server model computation.
 SMPC protects joint computation between parties.
 FHE protects computation over encrypted data.
@@ -1974,6 +2311,11 @@ FHE = strongest plaintext protection, but high compute and network cost.
 SMPC = strong multi-party privacy, but latency-sensitive.
 FHE secure aggregation = strong fit for smaller cross-silo groups.
 Ordinary secure aggregation = better default for massive cross-device FL.
+Data poisoning = corrupt local samples or labels.
+Model poisoning = corrupt the update vector directly.
+Secure aggregation hides updates; BFT wants to inspect updates.
+ZKP can bridge privacy and integrity when constraints are provable.
+On-premise PPA needs self-hosted KMS, HSM protection, PKI rotation, and threshold key custody.
 ```
 
 No single technique solves everything.
