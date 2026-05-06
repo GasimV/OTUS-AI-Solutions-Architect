@@ -42,12 +42,19 @@
   - [5.3 ZKP Bridge for Secure Aggregation and BFT](#zkp-bridge-for-secure-aggregation-and-bft)
   - [5.4 KMS for On-Premise PPA](#kms-for-on-premise-ppa)
   - [5.5 Architect Checklist](#ppa-security-architect-checklist)
-- [6. AI Architect Design and Operations](#ai-architect-design-and-operations)
-  - [6.1 Architect Decision Matrix](#architect-decision-matrix)
-  - [6.2 Reference Privacy-Preserving AI Stack](#reference-privacy-preserving-ai-stack)
-  - [6.3 Common Threats and Mitigations](#common-threats-and-mitigations)
-  - [6.4 Active Recall Prompts](#active-recall-prompts)
-  - [6.5 Final Mental Model](#final-mental-model)
+- [6. FedOps, Data Plane, Threat Modeling, and Production Readiness](#fedops-data-plane-threat-modeling-and-production-readiness)
+  - [6.1 FedOps in Kubernetes](#fedops-in-kubernetes)
+  - [6.2 Data Plane Bottleneck Management](#data-plane-bottleneck-management)
+  - [6.3 Threat Modeling with STRIDE and DREAD](#threat-modeling-with-stride-and-dread)
+  - [6.4 Defending the Architecture at ARB](#defending-the-architecture-at-arb)
+  - [6.5 Enterprise-Ready PPA Checklist](#enterprise-ready-ppa-checklist)
+  - [6.6 Sources and Literature](#sources-and-literature)
+- [7. AI Architect Design and Operations](#ai-architect-design-and-operations)
+  - [7.1 Architect Decision Matrix](#architect-decision-matrix)
+  - [7.2 Reference Privacy-Preserving AI Stack](#reference-privacy-preserving-ai-stack)
+  - [7.3 Common Threats and Mitigations](#common-threats-and-mitigations)
+  - [7.4 Active Recall Prompts](#active-recall-prompts)
+  - [7.5 Final Mental Model](#final-mental-model)
 
 ---
 
@@ -2097,9 +2104,337 @@ Avoid weak patterns:
 
 ---
 
+<a id="fedops-data-plane-threat-modeling-and-production-readiness"></a>
+
+## 6. FedOps, Data Plane, Threat Modeling, and Production Readiness
+
+This section covers the operational layer of privacy-preserving AI: **FedOps in Kubernetes**, heavy cryptographic compute orchestration, data-plane bottleneck management, threat modeling, Architecture Review Board (ARB) defense, and enterprise readiness checks.
+
+> <mark>Architect focus</mark>: production PPA fails less often because the privacy primitive is mathematically wrong, and more often because **networking, resource isolation, observability, key operations, or threat modeling are incomplete**.
+
+[Back to Contents](#contents)
+
+---
+
+<a id="fedops-in-kubernetes"></a>
+
+### 6.1 FedOps in Kubernetes
+
+**FedOps** is the operational discipline for running federated learning and privacy-preserving computation reliably in production infrastructure.
+
+For FHE, SMPC, secure aggregation, and DP-SGD workloads, Kubernetes must handle:
+
+- Long-running cryptographic jobs.
+- Stateful FL workers and aggregators.
+- Heavy CPU/GPU memory pressure.
+- Strict network isolation.
+- mTLS and service identity.
+- Privacy budget, latency, and cryptographic telemetry.
+
+**Reference Kubernetes control plane**
+
+```text
+Ingress + mTLS + rate limiting
+  -> Kubernetes API / admission controllers
+  -> worker node
+  -> StatefulSet pod
+  -> FL worker / aggregator / FHE math module
+  -> sidecar observability exporter
+  -> service mesh / network policy layer
+```
+
+#### 6.1.1 Network Layer and Isolation
+
+**Mandatory controls**
+
+- **mTLS at ingress** for participant and service identity.
+- **Service mesh** for internal service-to-service encryption and policy enforcement.
+- **Cilium / eBPF network policies** for granular isolation with lower overhead than heavy sidecar-only designs.
+- Rate limiting and throttling at gateways to reduce DDoS and Sybil-style pressure.
+
+<mark>Design rule</mark>:
+
+- Treat every client, aggregator, sidecar, exporter, and control-plane component as a separate trust boundary.
+
+#### 6.1.2 Resource Management
+
+Cryptographic workloads can have unstable memory and compute profiles.
+
+**Controls**
+
+- Use **StatefulSet** for FL workers or aggregators that need stable identity, storage, or ordered lifecycle.
+- Set strict `resources.requests` and `resources.limits`.
+- Protect against **OOMKill** during giant FHE polynomial operations.
+- Tune gRPC keep-alive for multi-hour sessions.
+- Use admission policies to prevent unbounded jobs from entering the cluster.
+
+**Architect interpretation**
+
+- FHE and SMPC workloads are not ordinary stateless microservices.
+- Treat them as long-running, resource-sensitive compute sessions.
+- Capacity planning must include peak ciphertext expansion and aggregation round concurrency.
+
+#### 6.1.3 Observability
+
+PPA observability must monitor both infrastructure and privacy-specific signals.
+
+**Recommended sidecar/exporter pattern**
+
+| Signal | Why it matters |
+| --- | --- |
+| **Privacy budget** | Tracks epsilon/delta consumption across rounds or queries |
+| **GPU metrics** | Captures utilization, memory pressure, and thermal issues through DCGM-style exporters |
+| **RTT latency** | Detects stragglers and WAN bottlenecks |
+| **Round duration** | Shows aggregation health and timeout risk |
+| **Ciphertext payload size** | Exposes FHE/SecAgg bandwidth pressure |
+| **Dropout rate** | Indicates client reliability and aggregation risk |
+
+> <mark>Operational warning</mark>: if privacy budget and cryptographic latency are not observable, the system can be mathematically private but operationally uncontrollable.
+
+[Back to Contents](#contents)
+
+---
+
+<a id="data-plane-bottleneck-management"></a>
+
+### 6.2 Data Plane Bottleneck Management
+
+In privacy-preserving AI, the data plane often becomes the bottleneck before GPU compute does.
+
+**Core problem**
+
+Homomorphic encryption and secure aggregation can inflate payloads dramatically.
+
+Example:
+
+```text
+1B parameters with FHE encryption -> approximately 50-100 GB per round
+```
+
+This creates a WAN network bottleneck even if GPU compute is available.
+
+```text
+GPU compute pipeline
+  -> WAN bottleneck
+  -> compressed transport / local steps / dedicated network QoS
+```
+
+**Main bottleneck dimensions**
+
+| Dimension | Problem | Mitigation |
+| --- | --- | --- |
+| **Bandwidth** | Encrypted tensors can reach tens of GB per round | Compression, quantization, local steps |
+| **Serialization overhead** | REST/JSON is too expensive for tensor exchange | gRPC + Protobuf / FlatBuffers |
+| **Round-trip latency** | Synchronous protocols stall on slow participants | Asynchronous PPA, timeout policies |
+| **Stragglers** | Slow nodes block aggregation | Drop or downweight late updates |
+| **WAN contention** | Shared network cannot sustain encrypted payloads | Dedicated L2 VPN, SD-WAN QoS |
+
+#### 6.2.1 Local Steps Pattern
+
+**Local Steps** reduce communication rounds by doing more local work before sending updates.
+
+Pattern:
+
+- Run 100-500 local gradient steps or epochs.
+- Send fewer updates to the aggregator.
+- Reduce total communication frequency.
+
+Trade-off:
+
+- Fewer network transfers.
+- More client compute.
+- Higher risk of client drift under non-IID data.
+
+#### 6.2.2 Protocol Baseline
+
+<mark>Protocol rule</mark>: avoid REST/JSON for encrypted tensor transfer.
+
+Prefer:
+
+- **gRPC** for long-running streaming sessions.
+- **Protobuf** or **FlatBuffers** for compact tensor serialization.
+- TCP keep-alive for long-running cryptographic exchanges.
+- Chunking and resumable upload for large ciphertext payloads.
+
+#### 6.2.3 Latency Tolerance
+
+For heavy PPA pipelines:
+
+- Move toward **asynchronous PPA** where possible.
+- Define timeout policies per round.
+- Detect and handle stragglers without blocking the whole pipeline.
+- Avoid synchronous barriers unless the protocol strictly requires them.
+
+**Architect takeaway**
+
+> <mark>Data-plane rule</mark>: if encrypted tensors are large, architecture quality depends on communication design as much as cryptographic correctness.
+
+[Back to Contents](#contents)
+
+---
+
+<a id="threat-modeling-with-stride-and-dread"></a>
+
+### 6.3 Threat Modeling with STRIDE and DREAD
+
+Threat modeling maps trust boundaries and attack vectors before the architecture is finalized.
+
+**STRIDE** helps classify the type of threat:
+
+| STRIDE category | Meaning | PPA example |
+| --- | --- | --- |
+| **Spoofing** | Pretending to be another identity | Fake FL client joins the consortium |
+| **Tampering** | Modifying data or messages | Poisoned model update |
+| **Repudiation** | Denying an action | Participant denies sending an update |
+| **Information disclosure** | Exposing private information | Gradient leakage or log exposure |
+| **Denial of service** | Disrupting availability | DDoS against aggregator |
+| **Elevation of privilege** | Gaining higher access | Container escape into Kubernetes node |
+
+**DREAD** helps prioritize risk:
+
+| DREAD factor | Question |
+| --- | --- |
+| **Damage** | How bad is the impact? |
+| **Reproducibility** | How reliably can the attack be repeated? |
+| **Exploitability** | How easy is the attack to execute? |
+| **Affected users** | How many participants or records are affected? |
+| **Discoverability** | How easy is the weakness to find? |
+
+#### 6.3.1 PPA Threat Map
+
+| Threat actor / boundary | Attack vectors | Protection |
+| --- | --- | --- |
+| **Honest-but-curious server** | Analyzes logs, raw gradients, or individual updates | Secure aggregation with FHE/SMPC, Differential Privacy, log minimization |
+| **Malicious clients** | Sybil attacks, data poisoning, model poisoning, DDoS against consortium | BFT aggregation, strict mTLS, rate limiting, participant admission control |
+| **Inference API attackers** | Model extraction, adversarial examples, abnormal request frequency | AI Gateway / ML firewall, prompt/input validation, anomaly detection, throttling |
+| **Infrastructure compromise** | Container escape, Kubernetes breach without TEE | Immutable infrastructure, read-only root filesystem, SELinux/AppArmor, least privilege |
+
+**Trust boundaries to document**
+
+- Client device or silo boundary.
+- Aggregator boundary.
+- KMS/HSM boundary.
+- Kubernetes control plane boundary.
+- Service mesh boundary.
+- Model registry boundary.
+- Inference API boundary.
+- Logging and observability boundary.
+
+> <mark>ARB-ready statement</mark>: every PPA design should show where plaintext, ciphertext, gradients, keys, logs, and model artifacts can exist.
+
+[Back to Contents](#contents)
+
+---
+
+<a id="defending-the-architecture-at-arb"></a>
+
+### 6.4 Defending the Architecture at ARB
+
+An Architecture Review Board (ARB) or C-level review expects clear technical arguments, not only technology names.
+
+| Stakeholder question | Strong architecture answer |
+| --- | --- |
+| **CISO:** What if an attacker gets root access to the aggregator? | The server sees only FHE ciphertexts or SecAgg-protected updates. Decryption keys are split through threshold secret sharing across participants. A majority or threshold compromise is required to decrypt. |
+| **CTO:** Why do we need budget for new GPU clusters? | FHE/SMPC overhead can increase CPU/VRAM demand significantly. Old hardware causes timeout cascades and can stall the whole consortium. |
+| **Lead Data Scientist:** How much accuracy do we lose from Differential Privacy? | Privacy budget epsilon is calibrated and validated experimentally. Example target: accuracy drop no more than 1.5%, justified by compliance and legal data-use enablement. |
+
+**How to defend the design**
+
+- Tie every control to a threat model.
+- Quantify expected overhead: CPU, VRAM, network, latency, and accuracy.
+- Show failure modes: timeout, OOMKill, stragglers, key compromise, poisoning.
+- Explain the trust model: who can see plaintext, ciphertext, keys, logs, and aggregates.
+- Present measured privacy/utility trade-offs, not generic claims.
+
+**ARB evidence pack**
+
+| Evidence | Purpose |
+| --- | --- |
+| Threat model diagram | Shows boundaries and attack vectors |
+| Privacy budget report | Shows DP configuration and cumulative privacy spend |
+| Load test results | Proves network and compute capacity |
+| Key management design | Shows KMS, HSM, rotation, and threshold custody |
+| Poisoning defense plan | Shows robust aggregation and anomaly detection |
+| Incident response runbook | Shows how to handle failed rounds, compromised nodes, and key rotation |
+
+> <mark>Review principle</mark>: C-level stakeholders approve risk arguments, not cryptographic terminology.
+
+[Back to Contents](#contents)
+
+---
+
+<a id="enterprise-ready-ppa-checklist"></a>
+
+### 6.5 Enterprise-Ready PPA Checklist
+
+Use this checklist before production deployment or integration into **critical information infrastructure (CII/KII)**.
+
+#### 6.5.1 Architecture and Network
+
+- Topology is defined: **cross-silo**, **cross-device**, **hub-and-spoke**, or **P2P**.
+- FL framework is selected with support for heterogeneous consortium hardware.
+- Vector quantization and gradient compression are implemented for data-plane optimization.
+- Ingress mTLS and service mesh policies are configured.
+- Rate limiting and throttling are deployed at gateway boundaries.
+- Dedicated L2 VPN or SD-WAN QoS is planned for high-volume encrypted tensor exchange.
+
+#### 6.5.2 Cryptography and Privacy
+
+- Secure aggregation mechanism is selected and tested: **FHE** or **SMPC**.
+- Privacy budget epsilon/delta is calculated and approved.
+- Local DP vs Global DP decision is documented.
+- DP-SGD clipping and noise settings are validated against utility targets.
+- ZKP constraints are defined where encrypted updates need pre-aggregation validation.
+- Threshold secret sharing is used for critical decryption keys.
+
+#### 6.5.3 Security and FedOps
+
+- On-premise KMS is designed where required, for example Vault or CryptoPro.
+- HSM-backed root key protection and auto-unseal are configured.
+- PKI transit secrets rotate node certificates dynamically.
+- BFT aggregation layer is implemented for poisoning resistance.
+- Sidecar monitoring tracks privacy budget, GPU metrics, RTT, payload size, and stragglers.
+- Capacity planning covers CPU, VRAM, memory, storage, and WAN throughput.
+- Container hardening is applied: read-only root filesystem, least privilege, SELinux/AppArmor where applicable.
+
+**Production readiness rule**
+
+> <mark>Ready for production</mark> means the system has a privacy design, a security design, an operations design, and a failure-mode design.
+
+[Back to Contents](#contents)
+
+---
+
+<a id="sources-and-literature"></a>
+
+### 6.6 Sources and Literature
+
+Foundational and practical references for privacy-preserving architecture:
+
+| Source | Why it matters |
+| --- | --- |
+| **A Pragmatic Introduction to Secure Multi-Party Computation** by Evans, Kolesnikov, and Rosulek | Practical foundation for SMPC, garbled circuits, BMR, and MPC key-management patterns |
+| **Building Secure and Reliable Systems** by Google SRE and Security | System trade-offs, KMS operations, graceful degradation, and zero-trust patterns such as BeyondCorp |
+| **FATE: An Industrial Grade Platform for Collaborative Learning With Data Protection** by WeBank | Industrial implementation patterns for vertical and horizontal federated learning |
+| **Federated Machine Learning: Concept and Applications** by Yang et al. | Mathematical and architectural foundations of federated learning and secure aggregation |
+| **The Algorithmic Foundations of Differential Privacy** by Dwork and Roth | Mathematical basis of DP, privacy budget calibration, and protection against inference |
+| **TensorFlow Privacy / Opacus** | Framework-level tooling for DP-SGD implementation in TensorFlow and PyTorch ecosystems |
+
+**Architect reading path**
+
+1. Start with DP foundations if the main problem is inference leakage or privacy budget.
+2. Read federated learning architecture sources if the system spans silos or devices.
+3. Study SMPC references if the design needs secure multi-party training or aggregation.
+4. Use secure and reliable systems material for KMS, zero trust, graceful degradation, and production operations.
+5. Validate implementation choices with framework documentation and benchmark results.
+
+[Back to Contents](#contents)
+
+---
+
 <a id="ai-architect-design-and-operations"></a>
 
-## 6. AI Architect Design and Operations
+## 7. AI Architect Design and Operations
 
 This section groups architecture-level decision tools, reference stack patterns, threats, active recall prompts, and final mental models.
 
@@ -2109,7 +2444,7 @@ This section groups architecture-level decision tools, reference stack patterns,
 
 <a id="architect-decision-matrix"></a>
 
-### 6.1 Architect Decision Matrix
+### 7.1 Architect Decision Matrix
 
 | Need | Strong candidate | Why |
 | --- | --- | --- |
@@ -2125,6 +2460,9 @@ This section groups architecture-level decision tools, reference stack patterns,
 | Detect malicious client updates | Robust aggregation / BFT | Reduces poisoning risk from compromised participants |
 | Validate encrypted updates before aggregation | ZKP + secure aggregation | Proves constraints without revealing vectors |
 | Protect FHE / SecAgg keys on-premise | Self-hosted KMS + HSM + threshold sharing | Prevents one server from holding the full decryption key |
+| Operate heavy cryptographic FL workloads | FedOps on Kubernetes | Manages stateful workers, resource limits, mTLS, observability, and stragglers |
+| Avoid encrypted tensor network collapse | Data-plane optimization | Uses local steps, gRPC/Protobuf, compression, QoS, and async timeout policies |
+| Prepare C-level architecture review | ARB evidence pack | Connects controls to threats, costs, privacy budget, and failure modes |
 
 Decision questions:
 
@@ -2141,7 +2479,7 @@ Decision questions:
 
 <a id="reference-privacy-preserving-ai-stack"></a>
 
-### 6.2 Reference Privacy-Preserving AI Stack
+### 7.2 Reference Privacy-Preserving AI Stack
 
 A practical privacy-preserving AI architecture can be layered like this:
 
@@ -2150,12 +2488,14 @@ Data owners / clients
   -> local preprocessing and minimization
   -> optional local Differential Privacy
   -> local training or feature computation
+  -> compression / quantization / local steps
   -> encrypted transport
   -> optional ZKP update validity proof
   -> secure aggregation with SMPC or TEE
   -> robust aggregation and anomaly detection
   -> global model update
   -> model validation and privacy accounting
+  -> FedOps observability and straggler control
   -> model registry
   -> privacy-aware inference or reporting
 ```
@@ -2180,10 +2520,12 @@ Architectural controls to include:
 - Authentication and authorization for clients.
 - Signed model updates.
 - Encrypted communication.
+- Data-plane optimization through compression, gRPC/Protobuf, and local steps.
 - ZKP validity proofs for encrypted updates where needed.
 - Secure aggregation.
 - Robust aggregation and BFT controls.
 - Privacy budget tracking.
+- FedOps observability for privacy budget, GPU metrics, RTT, payload size, and stragglers.
 - Model update anomaly detection.
 - Poisoning and backdoor detection.
 - KMS, HSM, certificate rotation, and threshold key sharing.
@@ -2196,7 +2538,7 @@ Architectural controls to include:
 
 <a id="common-threats-and-mitigations"></a>
 
-### 6.3 Common Threats and Mitigations
+### 7.3 Common Threats and Mitigations
 
 | Threat | Example | Mitigation |
 | --- | --- | --- |
@@ -2209,6 +2551,10 @@ Architectural controls to include:
 | Malicious client update | Client poisons global model | Robust aggregation, anomaly detection, client attestation |
 | Honest-but-curious aggregator | Aggregator inspects individual updates | SMPC secure aggregation, TEE |
 | Cloud operator exposure | Cloud infrastructure can observe sensitive processing | TEE, encryption, strict access control |
+| WAN data-plane collapse | Encrypted tensors overload network links | Local steps, compression, gRPC/Protobuf, SD-WAN QoS, async aggregation |
+| Kubernetes compromise | Attacker escapes container or abuses missing TEE | Read-only root FS, least privilege, SELinux/AppArmor, admission control |
+| Sybil client pressure | Fake or many clients overload/poison consortium | Strict mTLS, participant admission, rate limiting, identity governance |
+| Inference API extraction | Attacker probes model outputs repeatedly | AI Gateway / ML firewall, anomaly detection, throttling |
 | Output leakage | Released analytics reveal individuals | DP, k-anonymity-style checks, suppression policies |
 | Key compromise | Encrypted data becomes readable | Key management, rotation, HSM/KMS, separation of duties |
 | Full decryption key concentration | One server compromise exposes encrypted updates | Threshold secret sharing, HSM-backed KMS, split custody |
@@ -2223,7 +2569,7 @@ Important distinction:
 
 <a id="active-recall-prompts"></a>
 
-### 6.4 Active Recall Prompts
+### 7.4 Active Recall Prompts
 
 Use these to test understanding:
 
@@ -2261,6 +2607,12 @@ Use these to test understanding:
 32. Why is simple FedAvg vulnerable to scaled malicious updates?
 33. Why should full FHE or secure aggregation private keys not live on one server?
 34. What roles do KMS, HSM, Raft/Consul storage, and PKI transit secrets play in on-premise PPA?
+35. Why are FHE and SMPC workloads difficult to run as ordinary stateless microservices?
+36. Why should encrypted tensor exchange avoid REST/JSON?
+37. How do local steps reduce data-plane pressure, and what risk do they introduce?
+38. What trust boundaries should appear in a PPA STRIDE/DREAD review?
+39. What evidence should an architect bring to an ARB for a production PPA design?
+40. What must an enterprise-ready PPA checklist cover before CII/KII integration?
 
 [Back to Contents](#contents)
 
@@ -2268,7 +2620,7 @@ Use these to test understanding:
 
 <a id="final-mental-model"></a>
 
-### 6.5 Final Mental Model
+### 7.5 Final Mental Model
 
 Privacy-preserving AI architecture is a layered design problem:
 
@@ -2283,6 +2635,10 @@ Secure Aggregation protects individual client updates.
 Robust aggregation and BFT protect the global model from poisoned updates.
 ZKP can prove encrypted update validity without exposing the update.
 KMS/HSM/threshold sharing protect cryptographic root trust.
+FedOps turns PPA into an operable Kubernetes workload.
+Data-plane optimization prevents encrypted tensor exchange from collapsing the WAN.
+Threat modeling maps trust boundaries before controls are selected.
+ARB defense converts technical controls into risk, cost, and compliance arguments.
 Split Learning separates client and server model computation.
 SMPC protects joint computation between parties.
 FHE protects computation over encrypted data.
@@ -2316,6 +2672,10 @@ Model poisoning = corrupt the update vector directly.
 Secure aggregation hides updates; BFT wants to inspect updates.
 ZKP can bridge privacy and integrity when constraints are provable.
 On-premise PPA needs self-hosted KMS, HSM protection, PKI rotation, and threshold key custody.
+FedOps = stateful orchestration, mTLS, resource limits, observability, and straggler handling.
+Data plane = local steps + compression + gRPC/Protobuf + QoS + async timeout policies.
+STRIDE/DREAD = map attack categories and prioritize risks.
+Enterprise-ready PPA = architecture, cryptography, privacy, security, operations, and failure handling are all proven.
 ```
 
 No single technique solves everything.
