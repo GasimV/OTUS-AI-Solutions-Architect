@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="860" height="300" viewBox="0 0 860 300" role="img" aria-labelledby="title desc">
+  <title id="title">Demilitarized Zone DMZ network diagram</title>
+  <desc id="desc">Private network connected through a firewall to a DMZ containing mail server, web server, and router, then through another firewall to the internet.</desc>
+  <rect width="860" height="300" fill="#ffffff"/>
+  <text x="430" y="44" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700" fill="#000000">Demilitarized Zone(DMZ)</text>
+
+  <defs>
+    <marker id="arrow-left" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 10 0 L 0 5 L 10 10 z" fill="#000000"/>
+    </marker>
+    <marker id="arrow-right" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#000000"/>
+    </marker>
+    <pattern id="brick" width="28" height="18" patternUnits="userSpaceOnUse">
+      <rect width="28" height="18" fill="#ff6f14"/>
+      <path d="M0 0H28M0 18H28M0 0V18M28 0V18M14 0V9M0 9H28M7 9V18M21 9V18" fill="none" stroke="#4b4b4b" stroke-width="2"/>
+    </pattern>
+  </defs>
+
+  <line x1="205" y1="192" x2="128" y2="192" stroke="#000000" stroke-width="2" marker-end="url(#arrow-left)"/>
+  <line x1="278" y1="192" x2="546" y2="192" stroke="#000000" stroke-width="2"/>
+  <line x1="619" y1="192" x2="727" y2="192" stroke="#000000" stroke-width="2" marker-end="url(#arrow-right)"/>
+
+  <rect x="6" y="163" width="120" height="59" rx="7" fill="#ffffff" stroke="#000000" stroke-width="2"/>
+  <text x="66" y="186" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">Private</text>
+  <text x="66" y="209" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">Network</text>
+
+  <rect x="206" y="144" width="72" height="106" fill="url(#brick)" stroke="#4b4b4b" stroke-width="2"/>
+  <rect x="546" y="144" width="72" height="106" fill="url(#brick)" stroke="#4b4b4b" stroke-width="2"/>
+
+  <ellipse cx="410" cy="177" rx="81" ry="95" fill="#ffffff" stroke="#000000" stroke-width="2"/>
+
+  <rect x="352" y="123" width="14" height="40" fill="#ffffff" stroke="#000000" stroke-width="2"/>
+  <line x1="352" y1="127" x2="362" y2="122" stroke="#000000" stroke-width="1.5"/>
+  <circle cx="361" cy="143" r="1.8" fill="#000000"/>
+  <text x="359" y="172" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700">Mail</text>
+  <text x="359" y="184" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700">Server</text>
+
+  <rect x="434" y="123" width="25" height="40" fill="#ffffff" stroke="#000000" stroke-width="2"/>
+  <line x1="434" y1="127" x2="446" y2="123" stroke="#000000" stroke-width="1.5"/>
+  <circle cx="442" cy="143" r="1.8" fill="#000000"/>
+  <text x="446" y="172" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700">Web</text>
+  <text x="446" y="184" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="700">Server</text>
+
+  <path d="M384 207H435L439 242H378Z" fill="#ffffff" stroke="#000000" stroke-width="2"/>
+  <path d="M386 211H433M383 218H436M381 225H437M379 232H438" stroke="#000000" stroke-width="1.5"/>
+  <rect x="388" y="229" width="8" height="8" fill="#ffffff" stroke="#000000" stroke-width="1.5"/>
+  <rect x="400" y="229" width="8" height="8" fill="#ffffff" stroke="#000000" stroke-width="1.5"/>
+  <rect x="412" y="229" width="8" height="8" fill="#ffffff" stroke="#000000" stroke-width="1.5"/>
+  <rect x="424" y="229" width="8" height="8" fill="#ffffff" stroke="#000000" stroke-width="1.5"/>
+  <text x="409" y="258" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700">Router</text>
+
+  <path d="M729 179
+           C733 168, 745 166, 753 170
+           C758 158, 775 153, 789 159
+           C797 150, 817 155, 819 169
+           C838 169, 851 180, 851 196
+           C851 213, 837 222, 820 220
+           C811 234, 786 235, 777 223
+           C761 228, 742 223, 738 211
+           C724 209, 718 199, 722 190
+           C718 185, 722 180, 729 179Z"
+        fill="#ffffff" stroke="#000000" stroke-width="2"/>
+  <text x="787" y="203" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700">Internet</text>
+</svg>

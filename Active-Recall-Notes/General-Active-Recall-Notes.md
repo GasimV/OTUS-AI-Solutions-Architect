@@ -116,6 +116,7 @@
   - [Network Operations Center (NOC)](#network-operations-center-noc)
 - [Security, Identity & Compliance](#security-identity-compliance)
   - [VPN Server](#vpn-server)
+  - [DMZ and Layer 7 Firewall](#dmz-and-layer-7-firewall)
   - [Payment Card Industry Data Security Standard (PCI DSS)](#payment-card-industry-data-security-standard-pci-dss)
   - [Write once read many (WORM)](#write-once-read-many-worm)
   - [Role-Based Access Control (RBAC)](#role-based-access-control-rbac)
@@ -7762,6 +7763,164 @@ Your device → encrypted tunnel → VPN server → internet
 ```text
 👉 No VPN server = no real VPN, only encrypted networking at best.
 ```
+
+[Back to Contents](#contents)
+
+---
+
+<a id="dmz-and-layer-7-firewall"></a>
+
+### DMZ and Layer 7 Firewall
+
+![DMZ architecture diagram](./General-Active-Recall-Notes.assets/image-072.svg)
+
+In a network security architecture, a **DMZ — Demilitarized Zone** — is a separated perimeter network used to host systems that must be reachable from the internet without exposing the internal private network.
+
+A DMZ commonly contains public-facing services such as:
+
+- web servers
+- API gateways
+- reverse proxies
+- DNS servers
+- mail gateways
+- VPN gateways
+- VoIP gateways
+- sometimes **Layer 7 security controls**
+
+The purpose of the DMZ is to create a <u>controlled buffer</u>:
+
+```text
+Internet
+   |
+   v
+DMZ
+   |
+   v
+Internal Network
+```
+
+External users may be allowed to reach selected services in the DMZ, but they should not be able to directly access **internal databases**, **identity systems**, **private applications**, or **management networks**.
+
+**Layer 7 firewall**
+
+A **Layer 7 firewall** operates at the **application layer** of the OSI model. Unlike a basic **L3 / L4 firewall** that mainly evaluates IP addresses, ports, protocols, and connection state, an L7 firewall understands the application conversation itself.
+
+For example, with HTTP traffic, it can inspect:
+
+- request method
+- URL path
+- headers
+- cookies
+- query parameters
+- request body
+- API payload
+- user / session context
+- behavior patterns
+
+**Web Application Firewall (WAF)**
+
+A **Web Application Firewall (WAF)** is a specific type of **Layer 7 firewall** focused on **HTTP** and **HTTPS** applications.
+
+It can help block attacks such as:
+
+- SQL injection
+- cross-site scripting
+- file inclusion
+- malicious payloads
+- malformed requests
+- credential stuffing
+- other web-layer abuse
+
+When placed in or near the DMZ, an L7 firewall acts as an **application-aware gatekeeper** for external traffic.
+
+**Typical traffic flow**
+
+```text
+Internet Client
+    |
+    v
+Edge Firewall / CDN / DDoS Protection
+    |
+    v
+L7 Firewall / WAF / Reverse Proxy in DMZ
+    |
+    v
+Public App or API Gateway
+    |
+    v
+Internal Firewall
+    |
+    v
+Private Services / Databases
+```
+
+This placement allows suspicious traffic to be blocked before it reaches the application or internal network.
+
+**L7 firewall capabilities**
+
+| Capability | Purpose |
+| ---------- | ------- |
+| **Protocol validation** | Ensures requests follow expected protocol rules |
+| **Payload inspection** | Detects malicious input such as SQLi or XSS |
+| **TLS termination or bridging** | Allows encrypted traffic to be inspected |
+| **Context-aware filtering** | Applies rules based on method, path, user, region, or behavior |
+| **Bot protection** | Helps detect scraping, credential stuffing, and automated abuse |
+| **API protection** | Enforces schemas, rate limits, quotas, and authentication rules |
+| **Logging and alerting** | Gives visibility into application-layer attacks |
+
+However, the L7 firewall should not be treated as the only defense. It is one layer in a broader architecture.
+
+A strong design still needs:
+
+- secure application code
+- input validation
+- authentication and authorization
+- least-privilege network access
+- internal firewalls
+- database isolation
+- logging and monitoring
+- patching
+- secrets management
+- DDoS protection
+- incident response processes
+
+**AI architecture relevance**
+
+For AI systems, the same idea applies. The AI model or orchestration layer should not be directly exposed to the internet. Instead, traffic should pass through controlled layers:
+
+```text
+User / Client
+    |
+    v
+CDN / DDoS Protection
+    |
+    v
+WAF / L7 Firewall
+    |
+    v
+API Gateway
+    |
+    v
+AI Orchestration Service
+    |
+    v
+Model Gateway / Tools / Databases
+```
+
+In this architecture, the L7 firewall helps protect the AI system from:
+
+- malicious requests
+- abusive automation
+- suspicious payloads
+- unexpected API calls
+- traffic patterns that could lead to security, cost, or reliability problems
+
+**Simple takeaway**
+
+> **The DMZ controls where public traffic can go.**
+> **The L7 firewall controls what that traffic is allowed to do.**
+
+Together, they help expose necessary services to the internet while reducing the risk to internal systems.
 
 [Back to Contents](#contents)
 
