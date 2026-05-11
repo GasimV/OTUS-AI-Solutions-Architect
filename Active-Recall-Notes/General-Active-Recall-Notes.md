@@ -117,6 +117,7 @@
 - [Security, Identity & Compliance](#security-identity-compliance)
   - [VPN Server](#vpn-server)
   - [DMZ and Layer 7 Firewall](#dmz-and-layer-7-firewall)
+  - [Air Gap (Networking)](#air-gap-networking)
   - [Payment Card Industry Data Security Standard (PCI DSS)](#payment-card-industry-data-security-standard-pci-dss)
   - [Write once read many (WORM)](#write-once-read-many-worm)
   - [Role-Based Access Control (RBAC)](#role-based-access-control-rbac)
@@ -130,6 +131,7 @@
   - [Lightweight Directory Access Protocol (LDAP)](#lightweight-directory-access-protocol-ldap)
   - [OAuth](#oauth)
   - [SSO & MFA](#sso-mfa)
+  - [Time-Based One-Time Password (TOTP)](#time-based-one-time-password-totp)
   - [Federated Identity and SSO](#federated-identity-and-sso)
   - [Security Information and Event Management (SIEM)](#security-information-and-event-management-siem-2)
   - [Mutual TLS (mTLS)](#mutual-tls-mtls)
@@ -7926,6 +7928,95 @@ Together, they help expose necessary services to the internet while reducing the
 
 ---
 
+<a id="air-gap-networking"></a>
+
+### Air Gap (Networking)
+
+https://en.wikipedia.org/wiki/Air_gap_(networking)
+
+![Air gap network topology](./General-Active-Recall-Notes.assets/image-073.png)
+
+*Image source: [Speculos, Air gap network topology, CC BY-SA 4.0](https://commons.wikimedia.org/wiki/File:Air_gap_network.png).*
+
+**An air gap, air wall, air-gapping, or disconnected network** is a network security measure where a secure computer or network is physically isolated from unsecured networks such as the public internet or an untrusted LAN.
+
+<u>**Core idea**</u>
+
+An air-gapped system has **no direct network path** to outside systems:
+
+- **No routed connection** to the internet.
+- **No wired network interface** connected to an external network.
+- **No active wireless interface** such as Wi-Fi or Bluetooth.
+- **No ordinary remote access path** from less trusted environments.
+
+The goal is to make the secure environment a mostly **closed system**, so attackers cannot reach it through normal network traffic.
+
+**How data moves across the gap**
+
+Because there is no direct network connection, data transfer usually requires a controlled process:
+
+- Write data to a **physical medium** such as a USB drive, removable disk, or other approved storage.
+- Physically move the medium into or out of the secure environment.
+- Scan, review, and approve the data before it crosses the boundary.
+- In higher-assurance environments, use a **unidirectional data diode** or controlled electronic transfer mechanism.
+
+```text
+Internet / Exposed Network
+        |
+        |  no direct network connection
+        v
+Physical transfer / data diode / controlled import process
+        |
+        v
+Air-Gapped Network
+```
+
+**Where air gaps are commonly used**
+
+- **Military and government classified networks**
+- **Financial systems** such as stock-exchange infrastructure
+- **Industrial control systems** and SCADA environments
+- **Life-critical systems** such as nuclear, aviation, and medical systems
+- **Lottery and random-number-generation systems**
+
+**Security benefits**
+
+- Reduces exposure to internet-based attacks.
+- Limits remote exploitation paths.
+- Helps separate systems with different sensitivity levels.
+- Makes data movement more deliberate and auditable.
+
+**Important limitations**
+
+Air gaps are powerful, but they are not magic:
+
+- **Physical access still matters**: insiders, contractors, or poor media-handling procedures can bypass the protection.
+- **Removable media is risky**: malware such as Stuxnet showed how USB-based infection paths can affect isolated systems.
+- **Software updates become harder**: administrators must manually move and install patches, which can leave known vulnerabilities unpatched.
+- **Covert channels exist**: research has demonstrated possible data leakage through acoustic, radio-frequency, thermal, magnetic, optical, or other side channels.
+- **Wireless hardware must be controlled**: unused Wi-Fi, Bluetooth, NFC, cellular, or other radios should be disabled, removed, or governed by policy.
+
+**Architecture takeaway**
+
+Use an air gap when the cost of compromise is extremely high and normal network connectivity is too risky. But design the full operating model too:
+
+- strict physical access controls
+- controlled removable-media workflow
+- malware scanning and content review
+- patch/update process
+- monitoring inside the isolated environment
+- clear rules for high-side / low-side data transfer
+
+**Memory hook**
+
+```text
+Air gap = no ordinary network bridge; only controlled physical or one-way transfer.
+```
+
+[Back to Contents](#contents)
+
+---
+
 <a id="payment-card-industry-data-security-standard-pci-dss"></a>
 
 ### Payment Card Industry Data Security Standard (PCI DSS)
@@ -8539,6 +8630,71 @@ Multi-Factor Authentication (MFA) requires users to provide two or more verifica
 - **Enhances user experience without compromising security**
 
 **In summary, SSO and MFA are complementary**: SSO streamlines access, and MFA ensures that access is secure. Implementing both together is considered a best practice for modern cybersecurity strategies.
+
+[Back to Contents](#contents)
+
+---
+
+<a id="time-based-one-time-password-totp"></a>
+
+### Time-Based One-Time Password (TOTP)
+
+https://datatracker.ietf.org/doc/html/rfc6238
+
+**Time-Based One-Time Password (TOTP)** is a temporary authentication code generated from the **current time** and a **shared secret key**. It is commonly used as an offline-friendly second factor in MFA / 2FA apps.
+
+**What it produces**
+
+- Usually a **6-digit code**
+- Changes every **30-60 seconds**
+- Generated locally by an authenticator app or hardware token
+- Verified by the server using the same shared secret and time window
+
+**How it works**
+
+When TOTP is set up, the server and authenticator app both store the same **shared secret**. Later, they independently calculate the expected code from:
+
+- the shared secret
+- the current timestamp
+- a time step, commonly 30 seconds
+- a one-time-password algorithm, typically based on HMAC
+
+```text
+shared secret + current time window
+          |
+          v
+temporary 6-digit code
+```
+
+The user enters the code during login. If the server calculates the same code for the current time window, the extra factor is accepted.
+
+**Why it is useful**
+
+- **Offline generation**: the authenticator app does not need internet access to create the code.
+- **Short validity**: stolen codes expire quickly.
+- **No SMS dependency**: avoids SIM-swap and SMS interception risks.
+- **Works with many identity systems**: commonly supported by SSO, VPN, cloud, and enterprise login platforms.
+
+**Security considerations**
+
+- The **shared secret must be protected** because anyone with it can generate valid codes.
+- TOTP is still vulnerable to **real-time phishing** if a user enters the code into a fake login page.
+- Time synchronization matters; server and client clocks need to be close enough for verification.
+- Stronger MFA for high-risk systems may use **FIDO2/WebAuthn security keys** because they are phishing-resistant.
+
+**TOTP in MFA**
+
+| **Factor category** | **Example** |
+| --- | --- |
+| **Something you know** | Password or PIN |
+| **Something you have** | TOTP app, hardware token, security key |
+| **Something you are** | Fingerprint or face authentication |
+
+**Memory hook**
+
+```text
+TOTP = shared secret + current time = short-lived login code.
+```
 
 [Back to Contents](#contents)
 
