@@ -71,6 +71,7 @@
     - [CNI (Container Network Interface)](#cni-container-network-interface)
     - [ClusterIP, NodePort & LoadBalancer in K8s](#clusterip-nodeport-loadbalancer-in-k8s)
     - [Kubernetes UI/Dashboard & Core YAML Files](#kubernetes-ui-dashboard-core-yaml-files)
+    - [GPU Resource Optimizations](#gpu-resource-optimizations)
   - [Istio](#istio)
   - [Unleash](#unleash)
   - [Argo CD](#argo-cd)
@@ -5047,6 +5048,117 @@ service:
 **Does kubeadm install dashboard? → No**
 
 **Modern alternative to Dashboard? → Headlamp**
+
+<a id="gpu-resource-optimizations"></a>
+
+#### GPU Resource Optimizations
+
+**GPU resource optimizations** are production techniques for maximizing GPU utilization and avoiding wasted GPU memory during LLM inference. They include strategies such as **MIG**, **time slicing**, careful memory allocation, and monitoring-driven restarts.
+
+<u>**Why this matters**</u>
+
+- **GPUs are expensive production resources**
+- **Unused GPU memory is wasted capacity**
+- **Fragmented GPU memory can cause OOM errors even when total free memory looks sufficient**
+- **Kubernetes GPU scheduling must match workload shape, isolation needs, and cost constraints**
+
+**Common GPU optimization strategies**
+
+- **MIG (Multi-Instance GPU)**: splits a supported NVIDIA GPU into isolated hardware-backed GPU instances, useful when multiple smaller inference workloads do not need the full GPU.
+- **Time slicing**: lets multiple workloads share a GPU over time, useful for bursty or lower-utilization workloads, but with weaker isolation than MIG.
+- **Pre-allocation**: loads model weights on startup and reserves large memory blocks early to reduce allocator churn.
+- **Memory pools**: reuse scratch memory instead of repeatedly allocating and freeing variable-size chunks.
+- **KV cache management**: use inference engines such as **vLLM** that manage attention/KV cache memory efficiently.
+- **Monitoring and restart policy**: watch GPU memory trends and periodically restart long-running pods if fragmentation or memory growth appears.
+
+**GPU Memory Defragmentation**
+
+As models load and unload, or as dynamic inference workloads allocate memory for different sequence lengths, the GPU memory allocator can become fragmented.
+
+**Fragmentation means** free memory exists in many small chunks instead of one large contiguous block.
+
+This can prevent large models or large requests from fitting into memory, even when enough total free memory is available.
+
+**Why it happens**
+
+- **Model loading/unloading**
+- **Requests with varying sequence lengths**
+- **Dynamic KV cache growth**
+- **Repeated allocation and release of different memory sizes**
+- **Long-running inference pods serving many requests**
+
+**Why it is dangerous**
+
+```text
+Enough total free memory != enough usable continuous memory
+```
+
+**Example**
+
+Imagine GPU memory like a row of **100 parking spaces**.
+
+A big model needs **40 spaces next to each other**.
+
+At the beginning, memory is clean:
+
+```text
+[............................................................]
+```
+
+The model can fit easily:
+
+```text
+[MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM.................]
+```
+
+Now imagine many inference requests come and go. Some need short sequences, some need long sequences. They reserve and release different memory sizes.
+
+After a while, free memory may look like this:
+
+```text
+[MM..RRR...MMMM....R..MMM.....RR....MM...R.....MMM...]
+```
+
+There may be **50 free spaces total**, but they are split into small gaps:
+
+```text
+free chunks:
+2 spaces
+3 spaces
+4 spaces
+5 spaces
+...
+```
+
+Now a new model or large request needs **40 continuous spaces**.
+
+Even though total free memory is enough, there is no single large block available:
+
+```text
+Need: [........................................] 40 continuous spaces
+Have: [..] [...] [....] [.....] small scattered spaces
+```
+
+So the GPU can throw an **out-of-memory error**.
+
+**How inference systems reduce fragmentation**
+
+- **Load all model weights at startup** instead of repeatedly loading/unloading models.
+- **Use memory pools** for temporary buffers and scratch space.
+- **Use PyTorch's caching allocator**, which reuses GPU memory instead of returning every block immediately.
+- **Enable PyTorch expandable segments** where appropriate, so the allocator can expand existing memory segments instead of creating many new ones.
+- **Use vLLM PagedAttention**, which acts like a defragmentation technique for the KV cache by managing attention memory in pages.
+- **Restart long-running pods periodically** if monitoring shows GPU memory slowly increasing or OOMs appearing after many requests.
+
+<u>**Monitoring signal**</u>
+
+If available GPU memory decreases after serving many requests, while the workload pattern has not changed, it may indicate **memory fragmentation** or allocator growth.
+
+**Memory hook**
+
+```text
+GPU memory fragmentation = enough total free memory, but not enough continuous usable memory.
+```
 
 [Back to Contents](#contents)
 
