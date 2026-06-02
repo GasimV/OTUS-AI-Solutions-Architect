@@ -83,6 +83,7 @@
   - [Active-Active vs. Active-Passive Architecture](#active-active-vs-active-passive-architecture)
   - [Load Balancer, VIP & WIP](#load-balancer-vip-wip)
   - [Container Registries & Sonatype Nexus Repository Manager](#container-registries-sonatype-nexus-repository-manager)
+    - [Dockerfile, Docker Image & Registry Reusability](#dockerfile-docker-image-registry-reusability)
   - [Docker Swarm](#docker-swarm)
   - [Containers vs Virtual Machines Security Basics](#containers-vs-virtual-machines-security-basics)
   - [Serverless and FaaS](#serverless-and-faas)
@@ -5532,6 +5533,44 @@ Build image -> push image to registry -> Kubernetes pulls image from registry
 
 Kubernetes does not run images directly from your laptop. The image must be published somewhere the cluster can reach.
 
+<a id="dockerfile-docker-image-registry-reusability"></a>
+
+#### Dockerfile, Docker Image & Registry Reusability
+
+- You usually share **built images**, and keep/share the **recipes** too.
+
+**Dockerfile = recipe**
+
+- It describes how to build the app image: base OS, dependencies, files, and commands.
+
+**Docker image = reusable package**
+
+- It contains the app, runtime, and dependencies in a fixed filesystem. This is what Kubernetes, Docker Compose, cloud platforms, etc. actually run.
+
+**Registry = sharing place**
+
+- You push the built image to a registry like Docker Hub, **MLflow** Model Registry, **Kubeflow** Model Registry, GHCR, ECR, GCR, etc. Kubernetes then pulls that image.
+
+- So reusability mainly comes from the **image**, because it is portable and consistent across environments.
+
+**Example flow**
+
+```bash
+docker build -t myapp:1.0 .
+docker tag myapp:1.0 registry.example.com/myapp:1.0
+docker push registry.example.com/myapp:1.0
+```
+
+Then in Kubernetes:
+
+```yaml
+containers:
+  - name: myapp
+    image: registry.example.com/myapp:1.0
+```
+
+> In short: **Dockerfile makes it reproducible; Docker image makes it reusable.**
+
 #### Common Container Registry Choices
 
 | **Registry** | **Good fit** |
@@ -5543,6 +5582,8 @@ Kubernetes does not run images directly from your laptop. The image must be publ
 | **GitHub Container Registry (GHCR)** | GitHub-based teams and private package/image publishing. |
 | **Harbor** | Private/self-hosted enterprise registry. |
 | **Sonatype Nexus Repository Manager** | Private/self-hosted registry plus artifact repository management. |
+| **MLflow Model Registry** | Managing ML model versions, stages, metadata, and model artifacts. Not a Docker/OCI image registry. |
+| **Kubeflow Model Registry** | Kubernetes-native model registry for ML model metadata, versions, and lifecycle tracking. Not a Docker/OCI image registry. |
 
 **Good rule**
 
