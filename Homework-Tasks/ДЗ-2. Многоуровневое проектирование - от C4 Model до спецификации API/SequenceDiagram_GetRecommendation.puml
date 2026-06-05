@@ -1,0 +1,29 @@
+@startuml SequenceDiagram_GetRecommendation
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Dynamic.puml
+
+title Sequence Diagram: Пользователь запрашивает рекомендацию
+
+Person(customer, "Покупатель")
+Container(webApp, "Web Application", "React/Next.js")
+Container(apiGateway, "API Gateway", "Nginx/Kong")
+Container(aiService, "AI Recommendation Service", "Python/FastAPI")
+ContainerDb(redisCache, "Redis Cache", "Redis")
+ContainerDb(vectorDB, "Vector Database", "Qdrant")
+ContainerDb(mysqlDB, "MySQL Database", "MySQL")
+
+Rel(customer, webApp, "1. Открывает главную страницу", "")
+Rel(webApp, apiGateway, "2. GET /api/recommendations?user_id=123&context=homepage", "HTTPS")
+Rel(apiGateway, aiService, "3. Проксирует запрос", "HTTP")
+Rel(aiService, redisCache, "4. Проверяет кэш по ключу user:123:homepage", "Redis")
+Rel_Back(redisCache, aiService, "5. Cache miss (null)", "")
+Rel(aiService, vectorDB, "6. Запрашивает похожие товары по истории пользователя", "gRPC")
+Rel_Back(vectorDB, aiService, "7. Возвращает top-10 товаров с эмбеддингами", "")
+Rel(aiService, mysqlDB, "8. Обогащает метаданными (цены, наличие, категории)", "MySQL")
+Rel_Back(mysqlDB, aiService, "9. Возвращает данные товаров", "")
+Rel(aiService, aiService, "10. LLM генерирует персонализированное описание", "")
+Rel(aiService, redisCache, "11. Кэширует результат (TTL: 5 мин)", "Redis")
+Rel_Back(aiService, apiGateway, "12. Возвращает рекомендации + описание (JSON)", "HTTP")
+Rel_Back(apiGateway, webApp, "13. Проксирует ответ", "HTTPS")
+Rel_Back(webApp, customer, "14. Отображает персонализированный блок рекомендаций", "")
+
+@enduml

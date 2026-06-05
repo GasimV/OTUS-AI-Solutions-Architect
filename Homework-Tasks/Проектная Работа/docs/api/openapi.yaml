@@ -1,0 +1,319 @@
+openapi: 3.1.0
+info:
+  title: Secure GraphRAG Platform API
+  version: 0.1.0
+  description: >
+    API MVP закрытой GraphRAG-платформы. Контракт соответствует FastAPI
+    приложению services/api/src/secure_graphrag/main.py. В MVP identity claims
+    передаются в request body; в production они должны приходить от API Gateway
+    или IdP и сверяться с RBAC/ABAC политиками.
+servers:
+  - url: http://localhost:8080
+    description: Local Docker Compose MVP
+tags:
+  - name: health
+    description: Проверка доступности сервиса
+  - name: ingest
+    description: Загрузка документов в GraphRAG-хранилища
+  - name: query
+    description: Защищенные GraphRAG-запросы
+paths:
+  /:
+    get:
+      tags: [health]
+      summary: API landing endpoint
+      operationId: getRoot
+      responses:
+        "200":
+          description: Краткая информация о сервисе и основных маршрутах
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+              examples:
+                root:
+                  value:
+                    service: Secure GraphRAG Platform
+                    status: ok
+                    docs: /docs
+                    openapi: /openapi.json
+                    health: /health
+                    endpoints: [/ingest, /query, /query/stream, /metrics]
+  /health:
+    get:
+      tags: [health]
+      summary: Healthcheck API container
+      operationId: getHealth
+      responses:
+        "200":
+          description: API доступен
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              examples:
+                ok:
+                  value:
+                    status: ok
+  /ingest:
+    post:
+      tags: [ingest]
+      summary: Загрузить документ и построить chunks/entities
+      operationId: ingestDocument
+      description: >
+        Разбивает документ на chunks, извлекает простые Entity, сохраняет
+        chunks в Qdrant и граф Document-Chunk-Entity в Neo4j. ACL задается
+        на уровне chunk/document через acl_groups.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IngestPayload"
+            examples:
+              publicDocument:
+                value:
+                  document_id: doc-public-1
+                  tenant_id: bank
+                  title: Регламент
+                  text: Проект Сокол описывает общий порядок согласования заявок.
+                  acl_groups: [employees]
+                  metadata:
+                    source_uri: dms://regulations/doc-public-1.pdf
+                    classification: internal
+      responses:
+        "200":
+          description: Документ принят и проиндексирован
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngestResponse"
+        "422":
+          description: Ошибка валидации request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+  /query:
+    post:
+      tags: [query]
+      summary: Выполнить защищенный GraphRAG-запрос
+      operationId: queryKnowledgeBase
+      description: >
+        Выполняет pipeline guardrails -> vector retrieve -> graph expand ->
+        generation -> output guardrails. Ответ строится только по chunks,
+        доступным пользователю по tenant_id и acl_groups.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QueryPayload"
+            examples:
+              employeeQuestion:
+                value:
+                  query: Что известно про проект Сокол?
+                  user:
+                    user_id: u1
+                    tenant_id: bank
+                    groups: [employees]
+                  top_k: 5
+      responses:
+        "200":
+          description: Ответ сформирован или запрос заблокирован guardrails
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueryResponse"
+              examples:
+                answered:
+                  value:
+                    answer: "Ответ сформирован по доступным фрагментам графа знаний:\n- Проект Сокол описывает общий порядок согласования заявок. [chunk:doc-public-1:0]"
+                    citations: ["doc-public-1:0"]
+                    blocked: false
+                    guardrail_events: []
+                blocked:
+                  value:
+                    answer: Запрос заблокирован политикой безопасности.
+                    citations: []
+                    blocked: true
+                    guardrail_events: [prompt_injection_detected]
+        "422":
+          description: Ошибка валидации request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+  /query/stream:
+    post:
+      tags: [query]
+      summary: Выполнить GraphRAG-запрос с SSE-ответом
+      operationId: streamKnowledgeBaseQuery
+      description: >
+        Возвращает text/event-stream. Для vLLM API передает stream=true и транслирует
+        delta.content токены как SSE data-события. В конце потока отправляются final,
+        citations и guardrail_events события.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QueryPayload"
+      responses:
+        "200":
+          description: SSE-поток ответа
+          content:
+            text/event-stream:
+              schema:
+                type: string
+              examples:
+                stream:
+                  value: |
+                    data: Ответ
+
+                    data: сформирован
+
+                    event: final
+                    data: Ответ сформирован
+
+                    event: citations
+                    data: doc-public-1:0
+
+                    event: guardrail_events
+                    data: []
+        "422":
+          description: Ошибка валидации request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          example: ok
+    UserPayload:
+      type: object
+      required: [user_id]
+      properties:
+        user_id:
+          type: string
+          description: Идентификатор пользователя из корпоративного IdP/Gateway
+          example: u1
+        tenant_id:
+          type: string
+          default: bank
+          description: Идентификатор tenant/организации
+          example: bank
+        groups:
+          type: array
+          items:
+            type: string
+          default: []
+          description: Группы доступа пользователя
+          example: [employees, risk]
+    IngestPayload:
+      type: object
+      required: [document_id, title, text, acl_groups]
+      properties:
+        document_id:
+          type: string
+          example: doc-public-1
+        tenant_id:
+          type: string
+          default: bank
+          example: bank
+        title:
+          type: string
+          example: Регламент согласования
+        text:
+          type: string
+          description: Извлеченный текст документа после OCR/layout parsing
+          example: Проект Сокол описывает общий порядок согласования заявок.
+        acl_groups:
+          type: array
+          items:
+            type: string
+          minItems: 1
+          description: Группы, которым разрешен доступ к chunks документа
+          example: [employees]
+        metadata:
+          type: object
+          additionalProperties: true
+          default: {}
+          example:
+            source_uri: dms://regulations/doc-public-1.pdf
+            classification: internal
+    IngestResponse:
+      type: object
+      required: [document_id, chunk_ids, entity_count]
+      properties:
+        document_id:
+          type: string
+          example: doc-public-1
+        chunk_ids:
+          type: array
+          items:
+            type: string
+          example: ["doc-public-1:0"]
+        entity_count:
+          type: integer
+          minimum: 0
+          example: 2
+    QueryPayload:
+      type: object
+      required: [query, user]
+      properties:
+        query:
+          type: string
+          minLength: 1
+          example: Что известно про проект Сокол?
+        user:
+          $ref: "#/components/schemas/UserPayload"
+        top_k:
+          type: integer
+          default: 5
+          minimum: 1
+          maximum: 50
+          description: Количество seed chunks для retrieval; MVP не ограничивает максимум в коде, но контракт фиксирует безопасное значение
+    QueryResponse:
+      type: object
+      required: [answer, citations, blocked, guardrail_events]
+      properties:
+        answer:
+          type: string
+          description: Grounded answer или безопасное сообщение блокировки
+        citations:
+          type: array
+          items:
+            type: string
+          description: Список разрешенных chunk_id, использованных в ответе
+        blocked:
+          type: boolean
+          description: true, если запрос остановлен input guardrails
+        guardrail_events:
+          type: array
+          items:
+            type: string
+            enum:
+              - prompt_injection_detected
+              - input_pii_redacted
+              - output_pii_redacted
+              - inaccessible_citation_removed
+              - reasoning_trace_removed
+              - llm_transport_fallback
+          description: События безопасности и fallback-логики
+    ValidationError:
+      type: object
+      description: Стандартная ошибка FastAPI/Pydantic при некорректном request body
+      properties:
+        detail:
+          type: array
+          items:
+            type: object
+            additionalProperties: true

@@ -1,0 +1,42 @@
+@startuml C4_Container
+!include <C4/C4_Container>
+
+LAYOUT_WITH_LEGEND()
+
+Person(employee, "Сотрудник", "Запрашивает командировку")
+System_Boundary(s1, "Умный помощник командировок") {
+  Container(ui, "Web/Chat UI", "Web", "Сбор требований и ответы")
+  Container(manager, "Manager Agent", "LangGraph", "Оркестрация, делегирование задач")
+  Container(flightAgent, "Flight Search Agent", "LangChain", "Поиск и фильтрация билетов")
+  Container(hotelAgent, "Hotel Booking Agent", "LangChain", "Поиск и бронирование отелей")
+  Container(budgetAgent, "Budget Analyst Agent", "LangChain", "Проверка бюджета и лимитов")
+  Container(complianceAgent, "Compliance/RAG Agent", "LangChain", "Проверка политики")
+
+  Container(ragIngest, "RAG Ingestion", "Python", "Чанкинг и эмбеддинг документов")
+  Container(ragRetrieve, "RAG Retrieval", "Python", "Ретривер + реранкер")
+  ContainerDb(vectorDb, "Vector DB", "PGVector/Weaviate", "Эмбеддинги политик")
+  ContainerDb(kg, "Knowledge Graph", "Neo4j", "Сущности: правила, лимиты, исключения")
+}
+
+System_Ext(airlineApi, "Airline/OTA APIs", "Билеты")
+System_Ext(hotelApi, "Hotel APIs", "Отели")
+System_Ext(expenseSys, "Expense/ERP", "Бюджеты")
+System_Ext(policyRepo, "Политики", "Документы")
+
+Rel(employee, ui, "Создает запрос")
+Rel(ui, manager, "Передает запрос")
+Rel(manager, flightAgent, "Делегирует поиск перелетов")
+Rel(manager, hotelAgent, "Делегирует поиск отелей")
+Rel(manager, budgetAgent, "Проверка бюджета")
+Rel(manager, complianceAgent, "Проверка политики")
+Rel(complianceAgent, ragRetrieve, "Запрос на поиск знаний")
+Rel(ragRetrieve, vectorDb, "Семантический поиск")
+Rel(ragRetrieve, kg, "Запрос связей")
+Rel(ragIngest, policyRepo, "Чтение документов")
+Rel(ragIngest, vectorDb, "Запись эмбеддингов")
+Rel(ragIngest, kg, "Обновление графа знаний")
+Rel(flightAgent, airlineApi, "Запрос вариантов")
+Rel(hotelAgent, hotelApi, "Запрос вариантов")
+Rel(budgetAgent, expenseSys, "Проверка лимитов")
+
+@enduml

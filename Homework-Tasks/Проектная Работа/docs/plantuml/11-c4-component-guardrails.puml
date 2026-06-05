@@ -1,0 +1,49 @@
+@startuml C4_Component_Guardrails
+!include <C4/C4_Component>
+
+LAYOUT_WITH_LEGEND()
+
+title C4 Уровень 3 - Компоненты Guardrails
+
+Container_Boundary(guardrails, "Guardrails service / policy module") {
+    Component(input_policy, "Input policy engine", "Python rules", "Обнаруживает prompt injection и запрещенные инструкции")
+    Component(pii_redactor, "PII redactor", "Regex/DLP adapter", "Маскирует паспорт, СНИЛС, банковские карты и email")
+    Component(acl_checker, "Chunk ACL checker", "RBAC policy", "Проверяет tenant_id и пересечение user.groups с chunk.acl_groups")
+    Component(citation_filter, "Citation allow-list filter", "Policy rules", "Удаляет citations на недоступные chunk_id")
+    Component(reasoning_filter, "Reasoning trace filter", "Policy rules", "Удаляет <think>...</think> и служебные рассуждения модели")
+    Component(policy_events, "Policy event emitter", "Audit event model", "Формирует guardrail_events для аудита и observability")
+    Component(policy_config, "Policy configuration", "Vault/config map", "Версии правил, allow/deny patterns, future DLP labels")
+}
+
+Container(api, "FastAPI Backend", "Python", "REST/SSE API, валидация запросов, audit hooks")
+Container(agent, "LangGraph-оркестратор", "Python / LangGraph", "State machine: guard -> retrieve -> graph -> generate -> guard")
+ContainerDb(qdrant, "Qdrant", "Векторная БД", "Payload-фильтры tenant_id и acl_groups")
+ContainerDb(neo4j, "Neo4j", "Графовая БД", "ACL-aware graph expansion")
+ContainerDb(postgres, "Postgres", "SQL", "Журнал запросов и событий политик")
+Container(vault, "Vault", "Secrets/config", "Секреты и конфигурация политик")
+Container(otel, "OpenTelemetry Collector", "Tracing", "Трейсы и security events")
+
+Rel(api, input_policy, "inspect_input(query)")
+Rel(agent, input_policy, "Узел guard_input")
+Rel(input_policy, pii_redactor, "Санитизация разрешенного запроса")
+Rel(agent, acl_checker, "can_read_chunk(user, chunk)")
+Rel(acl_checker, qdrant, "Дублируется payload-фильтром", "tenant/group ACL")
+Rel(acl_checker, neo4j, "Дублируется graph-фильтром", "tenant/group ACL")
+Rel(agent, citation_filter, "inspect_output(answer, allowed_chunks, citations)")
+Rel(citation_filter, reasoning_filter, "Очищенный ответ")
+Rel(reasoning_filter, pii_redactor, "Финальная PII-маскировка")
+Rel(input_policy, policy_events, "prompt_injection_detected / input_pii_redacted")
+Rel(citation_filter, policy_events, "inaccessible_citation_removed")
+Rel(reasoning_filter, policy_events, "reasoning_trace_removed")
+Rel(policy_events, postgres, "Audit log")
+Rel(policy_events, otel, "Security spans/events")
+Rel(policy_config, vault, "Загрузка секретов и версий правил")
+
+note bottom of guardrails
+В MVP Guardrails реализован как Python-модуль secure_graphrag.security
+и вызывается внутри LangGraph-агента. В C4 Container он выделен как
+отдельный logical/production container, потому что политики безопасности
+должны иметь самостоятельную границу владения и масштабирования.
+end note
+
+@enduml

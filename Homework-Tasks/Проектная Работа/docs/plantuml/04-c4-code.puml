@@ -1,0 +1,93 @@
+@startuml C4_Code
+title C4 Уровень 4 - Код / классы
+
+skinparam classAttributeIconSize 0
+
+class SecureGraphRagAgent {
+  .. публичный API ..
+  +ingest(document: DocumentInput): IngestionResult
+  +answer(request: QueryRequest): QueryResponse
+  .. узлы LangGraph ..
+  -_guard_input_node(state): dict
+  -_retrieve_node(state): dict
+  -_graph_expand_node(state): dict
+  -_generate_node(state): dict
+  -_guard_output_node(state): dict
+}
+
+class Guardrails {
+  .. проверки безопасности ..
+  +inspect_input(text: str): GuardrailResult
+  +inspect_output(text: str, allowed_chunks: set, citations: list): GuardrailResult
+  +can_read_chunk(user: UserContext, chunk: Chunk): bool
+  +redact_pii(text: str): str
+}
+
+interface VectorStore {
+  .. контракт векторного хранилища ..
+  +upsert_chunks(chunks)
+  +search(query, user, top_k): list
+}
+
+interface GraphStore {
+  .. контракт графового хранилища ..
+  +upsert_chunks(chunks)
+  +expand(seed_chunk_ids, user, limit): list
+}
+
+class InMemoryVectorStore
+class InMemoryGraphStore
+class QdrantVectorStore
+class Neo4jGraphStore
+
+class LocalLlmClient {
+  .. клиент локального vLLM ..
+  +generate(query: str, chunks): str
+}
+
+class ExtractiveLlmFallback {
+  .. fallback без LLM для smoke-тестов ..
+  +generate(query: str, chunks): str
+}
+
+class Chunk {
+  .. фрагмент документа с ACL ..
+  +id: str
+  +document_id: str
+  +tenant_id: str
+  +text: str
+  +acl_groups: tuple
+  +ordinal: int
+  +metadata: dict
+  +entities: tuple
+}
+
+class QueryRequest {
+  +query: str
+  +user: UserContext
+  +top_k: int
+}
+
+class QueryResponse {
+  +answer: str
+  +citations: tuple
+  +blocked: bool
+  +guardrail_events: tuple
+}
+
+SecureGraphRagAgent --> Guardrails
+SecureGraphRagAgent --> VectorStore
+SecureGraphRagAgent --> GraphStore
+SecureGraphRagAgent --> LocalLlmClient
+SecureGraphRagAgent --> QueryRequest
+SecureGraphRagAgent --> QueryResponse
+VectorStore <|.. InMemoryVectorStore
+VectorStore <|.. QdrantVectorStore
+GraphStore <|.. InMemoryGraphStore
+GraphStore <|.. Neo4jGraphStore
+InMemoryVectorStore --> Chunk
+InMemoryGraphStore --> Chunk
+QdrantVectorStore --> Chunk
+Neo4jGraphStore --> Chunk
+
+@enduml

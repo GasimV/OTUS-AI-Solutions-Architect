@@ -1,0 +1,19 @@
+@startuml C1_SystemContext
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+LAYOUT_WITH_LEGEND()
+
+title System Context diagram for TechnoMart AI Recommendation Platform
+
+Person(customer, "Покупатель", "Пользователь интернет-магазина или мобильного приложения")
+
+System(technoMart, "TechnoMart Platform", "Платформа электронной коммерции с AI-рекомендациями")
+
+System_Ext(analytics, "Google Analytics", "Система веб-аналитики для отслеживания поведения пользователей")
+System_Ext(erp1C, "1C", "ERP система для управления заказами и чеками")
+
+Rel(customer, technoMart, "Совершает покупки, просматривает товары", "HTTPS")
+Rel(technoMart, analytics, "Отправляет события пользователей", "HTTPS/JavaScript")
+Rel(technoMart, erp1C, "Синхронизирует заказы", "REST API (каждые 15 мин)")
+
+@enduml

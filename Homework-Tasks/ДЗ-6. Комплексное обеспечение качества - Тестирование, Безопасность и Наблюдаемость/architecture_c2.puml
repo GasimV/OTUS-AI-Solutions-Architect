@@ -1,0 +1,98 @@
+@startuml C2_Banking_RAG_Assistant
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+title Диаграмма контейнеров (C2) — Banking RAG Assistant
+
+' ── Акторы ──────────────────────────────────────────────
+Person(customer, "Конечный клиент", "Web / mobile чат")
+Person(agent, "Агент contact-центра", "Desktop web app")
+
+' ── Внешние системы ─────────────────────────────────────
+System_Ext(llm_provider, "LLM Provider\n(Azure OpenAI)", "GPT-4o / GPT-4o-mini")
+System_Ext(waf_edge, "WAF / CDN Edge", "DDoS protection, geo-blocking")
+SystemDb_Ext(vector_db, "Vector Database\n(Qdrant / pgvector)", "Семантический индекс")
+SystemDb_Ext(doc_store, "Document Store\n(S3 / Blob)", "Исходные документы")
+System_Ext(core_banking, "Core Banking / CRM", "Контекст клиента только для чтения")
+System_Ext(idp, "Identity Provider\n(OIDC / OAuth 2.0)", "SSO + MFA")
+System_Ext(vault, "Secrets Manager\n(HashiCorp Vault)", "API keys, учетные данные")
+System_Ext(observability, "Observability Stack\n(Prometheus, Tempo, Loki,\nGrafana, Langfuse)", "Metrics, traces, logs,\nLLM analytics")
+
+' ══════════════════════════════════════════════════════════
+' Banking RAG Assistant — внутренние контейнеры
+' ══════════════════════════════════════════════════════════
+System_Boundary(rag_boundary, "Система Banking RAG Assistant") {
+
+    Container(api_gw, "API Gateway / BFF", "Kong / Envoy", "TLS termination, routing, rate limiting, валидация запросов, проверка JWT")
+
+    Container(authn, "AuthN / AuthZ Service", "Python / Go", "Token introspection через OIDC, применение RBAC-политик (роли agent vs customer)")
+
+    Container(orchestrator, "Conversation Orchestrator\n(RAG Service)", "Python (LangChain / LlamaIndex)", "Управляет потоком диалога, координирует retrieval → сборку prompt → вызов LLM → pipeline валидации")
+
+    Container(retriever, "Retriever Service", "Python", "Кодирует query пользователя → vector search в Vector DB, возвращает top-k chunks с метаданными")
+
+    Container(reranker, "Re-ranker", "Python (cross-encoder model)", "Пересчитывает релевантность top-k результатов, возвращает top-n уточненных контекстов")
+
+    Container(prompt_builder, "Prompt Builder", "Python", "Собирает system prompt + retrieved context + user query в финальный LLM prompt, применяет versioning шаблонов prompt")
+
+    Container(pii_sanitizer, "PII Sanitizer", "Python (Presidio / custom NER)", "Обнаруживает и заменяет PII (имена, номера счетов, SSN) токенизированными placeholders ДО вызова LLM")
+
+    Container(pii_desanitizer, "PII De-sanitizer", "Python", "Восстанавливает tokenized placeholders в исходные значения PII в ответе LLM для пользовательского вывода")
+
+    Container(guardrails, "Guardrails /\nOutput Validator", "Python (Guardrails AI / NeMo Guardrails)", "Валидирует ответ LLM: блокирует нарушения политик, детектирует hallucinations, проверяет остаточный PII, применяет границы тем")
+
+    Container(policy_engine, "Policy Engine", "OPA / Python rules", "Централизованные allow/deny rules: ограничения тем, эскалация действий, контент-политики, детекция injection")
+
+    Container(cache, "Response Cache", "Redis", "Кэширует частые пары query-answer с TTL, снижает число вызовов LLM и стоимость")
+
+    Container(audit_log, "Logging / Audit Service", "Python + Fluentd", "Записывает санитизированный audit trail всех взаимодействий; PII-redacted; неизменяемый append-only лог для compliance")
+
+    Container(telemetry, "Telemetry Exporters", "OpenTelemetry Collector", "Экспортирует metrics (Prometheus), traces (Tempo), logs (Loki), LLM traces (Langfuse)")
+}
+
+' ── Поток запроса ───────────────────────────────────────
+
+' Входящий поток
+Rel(customer, waf_edge, "HTTPS запрос")
+Rel(agent, waf_edge, "HTTPS запрос")
+Rel(waf_edge, api_gw, "Пробрасывает очищенный запрос", "HTTPS")
+
+' Аутентификация
+Rel(api_gw, authn, "Валидирует JWT / session", "internal gRPC")
+Rel(authn, idp, "Token introspection", "OIDC")
+
+' Оркестрация
+Rel(api_gw, orchestrator, "Пробрасывает аутентифицированный запрос", "internal gRPC / REST")
+Rel(orchestrator, cache, "Проверка cache hit", "Redis protocol")
+
+' Путь RAG Retrieval
+Rel(orchestrator, retriever, "Отправляет query для retrieval", "internal gRPC")
+Rel(retriever, vector_db, "Vector similarity search", "gRPC, mTLS")
+Rel(retriever, reranker, "Top-k chunks для re-ranking", "internal gRPC")
+
+' Сборка prompt
+Rel(orchestrator, prompt_builder, "Context + query → prompt", "internal call")
+Rel(prompt_builder, pii_sanitizer, "Санитизирует собранный prompt", "internal call")
+Rel(pii_sanitizer, policy_engine, "Проверяет паттерны prompt injection", "internal call")
+
+' Вызов LLM
+Rel(orchestrator, llm_provider, "Отправляет санитизированный prompt", "HTTPS, API key из Vault")
+Rel(orchestrator, vault, "Получает LLM API key", "Vault API, mTLS")
+
+' Валидация ответа
+Rel(orchestrator, guardrails, "Валидирует ответ LLM", "internal call")
+Rel(guardrails, policy_engine, "Оценивает контент-политики", "internal call")
+Rel(orchestrator, pii_desanitizer, "Восстанавливает PII placeholders", "internal call")
+
+' Обогащение контекста (опционально)
+Rel(orchestrator, core_banking, "Получает контекст клиента при необходимости", "REST, mTLS")
+
+' Логирование и telemetry
+Rel(orchestrator, audit_log, "Записывает audit record (PII-redacted)", "async, internal")
+Rel(orchestrator, telemetry, "Экспортирует spans, metrics", "OTLP")
+Rel(telemetry, observability, "Отправляет в Prometheus / Tempo / Loki / Langfuse", "OTLP / remote-write")
+
+' Ответ пользователю
+Rel(orchestrator, api_gw, "Возвращает валидированный ответ", "internal gRPC / REST")
+
+@enduml

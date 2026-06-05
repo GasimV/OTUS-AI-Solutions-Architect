@@ -1,0 +1,84 @@
+@startuml high_load_architecture
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title C4 Container Diagram — High-Load LLM Inference Platform (10k RPS, p99 < 200 ms)
+
+LAYOUT_WITH_LEGEND()
+LAYOUT_TOP_DOWN()
+
+Person(user, "End User", "Отправляет запросы к LLM-сервису из разных регионов мира")
+
+System_Boundary(edge, "Global Edge Layer") {
+    Container(geo_dns, "Geo-DNS", "AWS Route 53 / Cloudflare DNS", "Latency-based routing пользователя в ближайший регион")
+    Container(cdn, "CDN + Edge Workers", "Cloudflare / CloudFront + Lambda@Edge", "Кэш статики, JWT-валидация, rate limiting, хэширование prompt для cache lookup")
+}
+
+System_Boundary(region, "Regional Cluster (Kubernetes)") {
+
+    Container(api_gw, "API Gateway", "Kong / Envoy", "AuthN/Z, quotas, circuit breaker, traffic splitting, observability")
+
+    Container(router, "Request Router / Classifier", "Go service", "Классификация: light → sync, heavy → async. Обогащение метаданными")
+
+    System_Boundary(cache_layer, "Caching Layer") {
+        ContainerDb(exact_cache, "Exact Cache", "Redis Cluster", "Key = SHA256(prompt+params). TTL 1 ч. Hit ratio ~25%")
+        Container(embed_svc, "Embedding Service", "FastAPI + bge-small", "Генерация вектора запроса, ~5 ms")
+        ContainerDb(semantic_cache, "Semantic Cache", "Redis Vector / Milvus", "HNSW индекс эмбеддингов. Cosine sim ≥ 0.95 → cache hit")
+    }
+
+    System_Boundary(sync_path, "Synchronous Inference Path") {
+        Container(inference_sync, "Inference Pool (sync)", "K8s Deployment + vLLM, GPU A100", "HPA + KEDA, scale-to-zero отключён, min 6 подов")
+        Container(keda, "KEDA ScaledObject", "KEDA Operator", "Scale по Prometheus metric: gateway_request_queue_depth, target = 30")
+    }
+
+    System_Boundary(async_path, "Asynchronous Heavy Path") {
+        Container(queue, "Message Broker", "Kafka / NATS JetStream", "Topic: heavy-inference. Partitioned by tenant")
+        Container(inference_async, "Inference Workers (async)", "K8s Deployment + vLLM", "KEDA scaler по lag топика Kafka")
+        ContainerDb(result_store, "Result Store", "Redis + S3", "Ответы > 200 KB в S3, presigned URL")
+        Container(notifier, "Notifier", "WebSocket / Webhook service", "Push результата клиенту по готовности")
+    }
+
+    System_Boundary(obs, "Observability") {
+        Container(prom, "Prometheus", "TSDB", "Метрики: RPS, p99 latency, queue depth, cache hit ratio")
+        Container(otel, "OpenTelemetry Collector", "OTel", "Traces + logs → Tempo / Loki")
+    }
+}
+
+System_Ext(llm_model_registry, "Model Registry", "MLflow / S3 — веса моделей")
+
+' --- Relations: request flow ---
+Rel(user, geo_dns, "DNS resolve", "UDP/53")
+Rel(geo_dns, cdn, "Ближайший PoP", "HTTPS")
+Rel(user, cdn, "API request", "HTTPS/2")
+
+Rel(cdn, api_gw, "Cache MISS → forward", "HTTPS, mTLS")
+Rel(api_gw, router, "Routed request", "gRPC")
+
+Rel(router, exact_cache, "1. Lookup by hash", "RESP")
+Rel(router, embed_svc, "2. If miss → embed", "gRPC")
+Rel(embed_svc, semantic_cache, "3. ANN search top-k", "RESP")
+
+Rel(router, inference_sync, "4a. Light req (sync)", "gRPC, SSE stream")
+Rel(router, queue, "4b. Heavy req → enqueue", "Kafka protocol")
+
+Rel(queue, inference_async, "Consume", "Kafka")
+Rel(inference_async, result_store, "Persist result")
+Rel(result_store, notifier, "Ready event")
+Rel(notifier, user, "WS push / webhook", "WSS")
+
+Rel(inference_sync, exact_cache, "Write-through", "RESP")
+Rel(inference_sync, semantic_cache, "Write embedding+response", "RESP")
+Rel(inference_async, semantic_cache, "Write-through", "RESP")
+
+Rel(keda, inference_sync, "Scale replicas", "K8s API")
+Rel(keda, inference_async, "Scale replicas", "K8s API")
+Rel(keda, prom, "Poll metrics", "HTTP")
+
+Rel(inference_sync, llm_model_registry, "Pull weights on start")
+Rel(inference_async, llm_model_registry, "Pull weights on start")
+
+Rel(api_gw, otel, "Traces/logs")
+Rel(router, otel, "Traces/logs")
+Rel(inference_sync, prom, "Expose /metrics")
+Rel(inference_async, prom, "Expose /metrics")
+
+@enduml

@@ -1,0 +1,58 @@
+@startuml C2_Container
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Container diagram for TechnoMart Platform
+
+Person(customer, "Покупатель", "Пользователь интернет-магазина")
+
+System_Ext(analytics, "Google Analytics", "Веб-аналитика")
+System_Ext(erp1C, "1C", "ERP система")
+
+System_Boundary(technoMart, "TechnoMart Platform") {
+    Container(webApp, "Web Application", "React/Next.js", "Веб-интерфейс интернет-магазина")
+    Container(mobileApp, "Mobile Application", "React Native", "Мобильное приложение для iOS и Android")
+    
+    Container(apiGateway, "API Gateway", "Nginx/Kong", "Точка входа для всех API запросов, маршрутизация, rate limiting")
+    
+    Container(legacyBackend, "Legacy Backend", "PHP/Bitrix", "Существующий монолит: каталог, заказы, пользователи")
+    
+    Container(aiService, "AI Recommendation Service", "Python/FastAPI", "Сервис интеллектуальных персонализированных рекомендаций")
+    
+    Container(dataCollector, "Data Collector Service", "Python/Kafka", "Сбор и обработка событий пользователей")
+    
+    Container(mlPipeline, "ML Training Pipeline", "Python/Airflow", "Обучение и обновление моделей рекомендаций")
+    
+    ContainerDb(mysqlDB, "MySQL Database", "MySQL 8.0", "Хранение каталога, заказов, пользователей")
+    ContainerDb(vectorDB, "Vector Database", "Qdrant", "Хранение эмбеддингов товаров для быстрого поиска")
+    ContainerDb(redisCache, "Redis Cache", "Redis", "Кэширование рекомендаций и сессий")
+    
+    Container(s3Storage, "Object Storage", "S3/MinIO", "Хранение обученных моделей и датасетов")
+}
+
+Rel(customer, webApp, "Использует", "HTTPS")
+Rel(customer, mobileApp, "Использует", "HTTPS")
+
+Rel(webApp, apiGateway, "Делает API запросы", "HTTPS/JSON")
+Rel(mobileApp, apiGateway, "Делает API запросы", "HTTPS/JSON")
+Rel(webApp, analytics, "Отправляет события", "JavaScript")
+
+Rel(apiGateway, legacyBackend, "Маршрутизирует запросы каталога/заказов", "HTTP/JSON")
+Rel(apiGateway, aiService, "Маршрутизирует запросы рекомендаций", "HTTP/JSON")
+
+Rel(legacyBackend, mysqlDB, "Читает/пишет данные", "MySQL Protocol")
+Rel(legacyBackend, erp1C, "Синхронизирует заказы", "REST API")
+
+Rel(aiService, vectorDB, "Запрашивает похожие товары", "gRPC")
+Rel(aiService, redisCache, "Кэширует рекомендации", "Redis Protocol")
+Rel(aiService, mysqlDB, "Читает метаданные товаров", "MySQL Protocol")
+
+Rel(dataCollector, mysqlDB, "Записывает события", "MySQL Protocol")
+Rel(dataCollector, analytics, "Отправляет события", "HTTP")
+
+Rel(mlPipeline, mysqlDB, "Читает исторические данные", "MySQL Protocol")
+Rel(mlPipeline, vectorDB, "Обновляет эмбеддинги", "gRPC")
+Rel(mlPipeline, s3Storage, "Сохраняет/загружает модели", "S3 API")
+
+@enduml

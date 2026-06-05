@@ -1,0 +1,69 @@
+@startuml DeploymentDiagram
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Deployment.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Deployment Diagram for TechnoMart AI Platform
+
+Deployment_Node(cdn, "CDN", "Cloudflare") {
+    Container(staticAssets, "Static Assets", "HTML/CSS/JS", "Статические файлы фронтенда")
+}
+
+Deployment_Node(cloud, "Cloud Infrastructure", "AWS/Yandex Cloud") {
+    Deployment_Node(k8s, "Kubernetes Cluster", "k8s 1.28") {
+        Deployment_Node(frontendPods, "Frontend Pods", "Node.js") {
+            Container(webApp, "Web Application", "Next.js", "SSR приложение")
+        }
+        
+        Deployment_Node(gatewayPods, "Gateway Pods", "Kong") {
+            Container(apiGateway, "API Gateway", "Kong", "API Gateway")
+        }
+        
+        Deployment_Node(aiPods, "AI Service Pods", "Python 3.11") {
+            Container(aiService, "AI Recommendation Service", "FastAPI + Gunicorn", "AI сервис")
+        }
+        
+        Deployment_Node(workerPods, "Worker Pods", "Python 3.11") {
+            Container(mlPipeline, "ML Pipeline Workers", "Airflow/Celery", "Обучение моделей")
+        }
+    }
+    
+    Deployment_Node(rds, "RDS Instance", "AWS RDS") {
+        ContainerDb(mysqlDB, "MySQL Database", "MySQL 8.0", "Основная БД")
+    }
+    
+    Deployment_Node(vectorDBCluster, "Vector DB Service", "Qdrant Cloud") {
+        ContainerDb(vectorDB, "Vector Database", "Qdrant", "Эмбеддинги")
+    }
+    
+    Deployment_Node(cacheCluster, "ElastiCache Service", "AWS ElastiCache") {
+        ContainerDb(redisCache, "Redis Cache Service", "Redis 7.0", "Кэш")
+    }
+    
+    Deployment_Node(s3, "Object Storage", "AWS S3") {
+        Container(s3Storage, "S3 Buckets", "S3", "Модели и данные")
+    }
+}
+
+Deployment_Node(onPrem, "On-Premise Data Center", "Собственный ЦОД") {
+    Deployment_Node(phpServers, "PHP Servers", "Ubuntu 20.04") {
+        Container(legacyBackend, "Legacy Backend", "PHP 7.4/Bitrix", "Старый монолит")
+    }
+    
+    Deployment_Node(erpServer, "1C Server", "Windows Server") {
+        System_Ext(erp1C, "1C Enterprise", "ERP система")
+    }
+}
+
+Rel(staticAssets, webApp, "Запрашивает динамический контент", "HTTPS")
+Rel(webApp, apiGateway, "API вызовы", "HTTPS")
+Rel(apiGateway, aiService, "Запросы рекомендаций", "HTTP")
+Rel(apiGateway, legacyBackend, "Запросы каталога", "HTTP")
+Rel(aiService, vectorDB, "Поиск векторов", "gRPC")
+Rel(aiService, redisCache, "Кэширование", "Redis")
+Rel(aiService, mysqlDB, "Чтение данных", "MySQL")
+Rel(mlPipeline, s3Storage, "Загрузка моделей", "S3")
+Rel(legacyBackend, mysqlDB, "CRUD операции", "MySQL")
+Rel(legacyBackend, erp1C, "Синхронизация", "REST")
+
+@enduml

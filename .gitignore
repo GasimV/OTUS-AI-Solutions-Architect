@@ -1,5 +1,4 @@
 Lectures/
-Homework-Tasks/
 .vscode/
 nul
 build
@@ -8,3 +7,32 @@ AI-Architect-Calculators/build/*
 !AI-Architect-Calculators/build/Release/
 AI-Architect-Calculators/build/Release/*
 !AI-Architect-Calculators/build/Release/calculator_server.exe
+
+# Office temporary lock files
+~$*
+
+# Python/runtime
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# Env/secrets
+.env
+.env.*
+!.env.example
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Terraform local state
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+
+# OS files
+.DS_Store
+Thumbs.db

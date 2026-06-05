@@ -1,0 +1,40 @@
+@startuml Sequence_Query
+title Sequence - сложный защищенный GraphRAG-запрос
+
+autonumber
+
+actor "Пользователь" as User
+participant "API Gateway / FastAPI" as API
+participant "Входные Guardrails" as Guard
+participant "LangGraph-агент" as Agent
+database "Qdrant" as Qdrant
+database "Neo4j" as Neo4j
+participant "vLLM" as LLM
+participant "Выходные Guardrails" as OutGuard
+database "Postgres / аудит" as Audit
+
+User -> API : POST /query\nquery + user_id + tenant + groups
+API -> Guard : inspect_input(query)
+
+alt Обнаружен prompt injection
+  Guard --> API : blocked + событие политики
+  API -> Audit : записать событие блокировки
+  API --> User : безопасный ответ в стиле 403
+else Запрос принят
+  Guard --> API : очищенный запрос
+  API -> Agent : вызвать состояние LangGraph
+  Agent -> Qdrant : векторный поиск\nфильтр tenant_id и acl_groups
+  Qdrant --> Agent : доступные seed chunks
+  Agent -> Neo4j : расширение по общим Entity-узлам\nфильтр tenant_id и acl_groups
+  Neo4j --> Agent : доступные соседние chunks
+  Agent -> Agent : rerank vector + graph evidence
+  Agent -> LLM : grounded prompt только с разрешенными chunks
+  LLM --> Agent : черновик ответа + citations
+  Agent -> OutGuard : inspect_output(answer, allowed_chunk_ids)
+  OutGuard --> Agent : очищенный ответ + разрешенные citations
+  Agent -> Audit : записать trace, citations, guardrail_events
+  Agent --> API : QueryResponse
+  API --> User : ответ или SSE stream
+end
+
+@enduml

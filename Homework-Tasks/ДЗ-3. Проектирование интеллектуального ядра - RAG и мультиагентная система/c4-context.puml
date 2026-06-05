@@ -1,0 +1,27 @@
+@startuml C4_Context
+!include <C4/C4_Context>
+
+LAYOUT_WITH_LEGEND()
+
+Person(employee, "Сотрудник", "Создает запрос на командировку")
+Person(travelMgr, "Travel-менеджер", "Контролирует процесс при необходимости")
+
+System_Boundary(s1, "Умный помощник командировок") {
+  System(smartAssistant, "Smart Travel Assistant", "Мульти-агентная система с RAG")
+}
+
+System_Ext(airlineApi, "Airline/OTA APIs", "Поиск и бронирование перелетов")
+System_Ext(hotelApi, "Hotel APIs", "Поиск и бронирование отелей")
+System_Ext(expenseSys, "Expense/ERP", "Бюджеты и учет расходов")
+System_Ext(idp, "SSO/IdP", "Аутентификация и роли")
+System_Ext(policyRepo, "Корпоративные политики", "PDF/Confluence/SharePoint")
+
+Rel(employee, smartAssistant, "Запрашивает подбор командировки")
+Rel(travelMgr, smartAssistant, "Согласует исключения")
+Rel(smartAssistant, airlineApi, "Запрашивает варианты")
+Rel(smartAssistant, hotelApi, "Запрашивает варианты")
+Rel(smartAssistant, expenseSys, "Проверяет бюджет")
+Rel(smartAssistant, idp, "Проверяет права")
+Rel(smartAssistant, policyRepo, "Получает политики (RAG)")
+
+@enduml

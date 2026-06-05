@@ -1,0 +1,48 @@
+@startuml Data_Flow
+title Data Flow - загрузка документов и выполнение запроса
+
+skinparam componentStyle rectangle
+
+folder "Исходные материалы" as Raw {
+  artifact "Сканы" as scans
+  artifact "Сложные PDF" as pdf
+  artifact "Чертежи" as drawings
+  artifact "DOCX/XLSX" as office
+}
+
+component "OCR и layout-парсеры\nfuture: PaddleOCR/Tesseract/LayoutLM" as OCR
+component "Chunker\nсемантические окна + overlap" as Chunker
+component "DLP-классификатор\nPII/classification labels" as DLP
+component "Извлечение сущностей\nпростая онтология" as Entity
+component "Локальная embedding-модель\nhash fallback / future bge-m3" as Embed
+
+database "Qdrant\nvector + payload ACL" as Qdrant
+database "Neo4j\nграф Document-Chunk-Entity" as Neo4j
+database "Postgres\ningest jobs, сессии, аудит" as Postgres
+
+component "LangGraph query pipeline" as Query
+component "vLLM\nлокальная grounded generation" as LLM
+actor "Авторизованный пользователь" as User
+
+scans --> OCR
+pdf --> OCR
+drawings --> OCR
+office --> OCR
+OCR --> Chunker : извлеченный текст, таблицы, layout metadata
+Chunker --> DLP : текст chunk
+Chunker --> Entity : текст chunk
+Chunker --> Embed : текст chunk
+DLP --> Qdrant : tenant_id, acl_groups, labels
+DLP --> Neo4j : labels узлов и classification
+Entity --> Neo4j : сущности и MENTIONS edges
+Embed --> Qdrant : embedding vector
+Chunker --> Postgres : metadata ingest job
+
+User --> Query : query + identity claims
+Query --> Qdrant : vector search с ACL-фильтром
+Query --> Neo4j : graph expansion с ACL-фильтром
+Query --> LLM : только разрешенный контекст
+Query --> Postgres : query log и citations
+LLM --> User : grounded answer
+
+@enduml

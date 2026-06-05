@@ -1,0 +1,65 @@
+@startuml Deployment_Local_Compose
+title Deployment Local - MVP на рабочей станции с Docker Compose
+
+skinparam componentStyle rectangle
+
+node "Рабочая станция / on-prem узел" as host {
+  node "Linux OS / Docker Engine\nили Docker Desktop Linux VM" as docker {
+    frame "Сеть: dmz" as dmz {
+      node "api-контейнер" as api {
+        component "FastAPI\nпорт 8080" as api_comp
+      }
+    }
+
+    frame "Сеть: internal" as internal {
+      database "Qdrant\n6333\nвекторы + ACL payload" as qdrant
+      database "Neo4j\n7474/7687\nграф знаний" as neo4j
+      database "Postgres\n5432\nсессии/аудит" as postgres
+      component "Vault\n8200\nсекреты" as vault
+      component "Prometheus\n9090" as prometheus
+      component "Grafana\n3000" as grafana
+    }
+
+    frame "Сеть: admin\nhost-access для локального демо" as admin {
+      component "Опубликованные admin ports\n6333, 7474, 7687, 5432, 8200, 9090, 3000, 8000" as admin_ports
+    }
+
+    frame "Сеть: model" as modelnet {
+      node "vLLM-контейнер\nOpenAI-compatible API\nAWQ + KV cache" as vllm
+    }
+  }
+
+  node "NVIDIA GeForce RTX 5080 Laptop GPU\n16 GB VRAM" as gpu
+}
+
+cloud "Корпоративная LAN" as lan
+
+lan --> api_comp : HTTPS/SSE
+lan --> admin_ports : локальный доступ к UI/API администрирования
+api_comp --> qdrant : HTTP векторный поиск
+api_comp --> neo4j : Bolt graph queries
+api_comp --> postgres : SQL запись аудита/сессий
+api_comp --> vault : чтение секретов
+api_comp --> vllm : HTTP /v1/chat/completions
+gpu --> vllm : CUDA
+prometheus --> api_comp : сбор /metrics
+prometheus --> qdrant : сбор /metrics
+grafana --> prometheus : запрос метрик
+admin_ports .. qdrant
+admin_ports .. neo4j
+admin_ports .. postgres
+admin_ports .. vault
+admin_ports .. prometheus
+admin_ports .. grafana
+admin_ports .. vllm
+
+note right of vllm
+GPU-профиль:
+- Qwen3-8B-AWQ в ./models/qwen3-awq
+- gpu-memory-utilization=0.88
+- max-model-len=8192
+- kv-cache-dtype=auto
+- prefix caching включен
+end note
+
+@enduml

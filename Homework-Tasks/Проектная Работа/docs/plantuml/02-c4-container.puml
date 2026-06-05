@@ -1,0 +1,50 @@
+@startuml C4_Container
+!include <C4/C4_Container>
+
+LAYOUT_WITH_LEGEND()
+
+title C4 Уровень 2 - Контейнеры
+
+Person(user, "Корпоративный пользователь", "Аутентифицированный сотрудник")
+
+System_Boundary(platform, "Защищенная GraphRAG-платформа") {
+    Container(frontend, "Frontend / адаптер каналов", "Web UI / внутренний бот", "Интерфейс запросов и потоковых ответов")
+    Container(gateway, "API Gateway", "Reverse proxy", "TLS termination, rate limiting, проброс аутентификации")
+
+    Container_Boundary(control, "Плоскость управления / Control Plane") {
+        Container(api, "FastAPI Backend", "Python", "REST/SSE API, валидация запросов, audit hooks")
+        Container(agent, "LangGraph-оркестратор", "Python / LangGraph", "Состояния агента: guardrails, поиск, расширение графа, генерация")
+        Container(guardrails, "Guardrails", "Python", "Маскирование PII, защита от prompt injection, allow-list цитат")
+    }
+
+    Container_Boundary(data, "Плоскость данных / Data Plane") {
+        ContainerDb(qdrant, "Qdrant", "Векторная БД", "Эмбеддинги чанков и ACL-фильтры в payload")
+        ContainerDb(neo4j, "Neo4j", "Графовая БД", "Граф знаний Document-Chunk-Entity")
+        ContainerDb(postgres, "Postgres", "Реляционная БД", "Сессии, журналы запросов, метаданные аудита")
+        Container(llm, "vLLM Serving Engine", "Qwen3 AWQ", "Локальный OpenAI-compatible inference с GPU-ускорением")
+        Container(vault, "Vault", "Управление секретами", "Runtime-секреты и сервисные учетные данные")
+    }
+
+    Container_Boundary(obs, "Наблюдаемость") {
+        Container(prom, "Prometheus", "Метрики", "Собирает метрики API и БД")
+        Container(grafana, "Grafana", "Дашборды", "Latency, throughput, ошибки, tokens/sec")
+        Container(otel, "OpenTelemetry Collector", "Трассировка", "Трейсы запросов и spans")
+    }
+}
+
+Rel(user, frontend, "Использует")
+Rel(frontend, gateway, "Вызывает", "HTTPS/SSE")
+Rel(gateway, api, "Маршрутизирует аутентифицированные запросы", "HTTP")
+Rel(api, agent, "Запускает граф состояний", "Python call")
+Rel(agent, guardrails, "Применяет входные и выходные политики")
+Rel(agent, qdrant, "Векторный поиск с фильтрами tenant/group", "HTTP")
+Rel(agent, neo4j, "Расширение контекста по сущностям", "Bolt")
+Rel(agent, llm, "Grounded prompt", "OpenAI-compatible HTTP")
+Rel(api, postgres, "Пишет сессии и аудит", "SQL")
+Rel(api, vault, "Читает секреты", "HTTP")
+Rel(api, otel, "Экспортирует трейсы", "OTLP")
+Rel(prom, api, "Собирает /metrics")
+Rel(prom, qdrant, "Собирает /metrics")
+Rel(grafana, prom, "Запрашивает метрики")
+
+@enduml

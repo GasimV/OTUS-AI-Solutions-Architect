@@ -1,0 +1,49 @@
+@startuml C1_Banking_RAG_Assistant
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+LAYOUT_WITH_LEGEND()
+title Диаграмма контекста системы (C1) — Banking Customer Support RAG Assistant
+
+' ── Акторы ──────────────────────────────────────────────
+Person(customer, "Конечный клиент", "Клиент розничного банка, использующий web или mobile чат")
+Person(agent, "Агент contact-центра", "Сотрудник банка, отвечающий на запросы клиентов через desktop")
+
+' ── Основная система ────────────────────────────────────
+System(rag_system, "Banking RAG Assistant", "Система Retrieval-Augmented Generation, которая отвечает на вопросы клиентской поддержки, используя внутреннюю базу знаний и внешний LLM")
+
+' ── Внутренние системы (Bank VPC) ───────────────────────
+System(core_banking, "Core Banking / CRM", "Данные аккаунтов, профили клиентов (доступ только для чтения)")
+SystemDb(doc_store, "Document Store", "FAQ, условия продуктов, тарифы, политики, playbook'и эскалации (S3 / Blob / NFS)")
+SystemDb(vector_db, "Vector Database", "Индекс embeddings для семантического retrieval (Qdrant / pgvector)")
+System(idp, "Identity Provider", "Корпоративный SSO / OIDC + клиентский OAuth 2.0 с MFA")
+System(secret_mgr, "Secrets Manager / Vault", "Хранит API keys, учетные данные DB, ключи шифрования")
+
+' ── Внешние системы ─────────────────────────────────────
+System_Ext(llm_provider, "LLM Provider (Azure OpenAI)", "GPT-4o / GPT-4o-mini — API генерации текста")
+System_Ext(waf, "WAF / API Gateway (Cloud)", "Защита на Edge, rate limiting, DDoS mitigation")
+
+' ── Observability Stack ─────────────────────────────────
+System(observability, "Observability Stack", "Prometheus + Tempo + Loki + Grafana + Langfuse")
+
+' ── Связи ───────────────────────────────────────────────
+Rel(customer, rag_system, "Отправляет вопросы / получает ответы", "HTTPS (chat widget)")
+Rel(agent, rag_system, "Отправляет вопросы / получает ответы", "HTTPS (agent desktop)")
+
+Rel(rag_system, core_banking, "Читает контекст клиента (read-only)", "gRPC / REST, mTLS")
+Rel(rag_system, doc_store, "Получает исходные документы для индексации", "S3 API / NFS")
+Rel(rag_system, vector_db, "Выполняет query / запись embeddings", "gRPC, mTLS")
+Rel(rag_system, llm_provider, "Отправляет санитизированные prompts, получает completions", "HTTPS, API key через Vault")
+Rel(rag_system, idp, "Аутентифицирует пользователей, валидирует tokens", "OIDC / OAuth 2.0")
+Rel(rag_system, secret_mgr, "Получает secrets во время выполнения", "Vault API, mTLS")
+Rel(rag_system, observability, "Экспортирует metrics, traces, logs", "OTLP / Prometheus remote-write")
+Rel(customer, waf, "Весь трафик проходит через WAF", "HTTPS")
+Rel(waf, rag_system, "Пробрасывает валидированные запросы", "HTTPS")
+
+' ── Границы доверия ─────────────────────────────────────
+Boundary(bank_vpc, "Bank VPC — доверенная зона") {
+}
+
+Boundary(external_zone, "External / недоверенная зона") {
+}
+
+@enduml

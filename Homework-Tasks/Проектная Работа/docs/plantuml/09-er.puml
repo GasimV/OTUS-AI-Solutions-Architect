@@ -1,0 +1,133 @@
+@startuml ER
+title ER - модель данных защищенной GraphRAG-платформы
+
+hide circle
+skinparam linetype ortho
+
+entity "tenant / тенант" as tenant {
+  * id : uuid <<PK>>
+  --
+  name : varchar
+  created_at : timestamp
+}
+
+entity "app_user / пользователь" as app_user {
+  * id : uuid <<PK>>
+  --
+  tenant_id : uuid <<FK>>
+  login : varchar
+  display_name : varchar
+  status : varchar
+}
+
+entity "access_group / группа доступа" as access_group {
+  * id : uuid <<PK>>
+  --
+  tenant_id : uuid <<FK>>
+  name : varchar
+  external_ref : varchar
+}
+
+entity "user_group / членство пользователя" as user_group {
+  * user_id : uuid <<PK, FK>>
+  * group_id : uuid <<PK, FK>>
+}
+
+entity "document / документ" as document {
+  * id : uuid <<PK>>
+  --
+  tenant_id : uuid <<FK>>
+  title : varchar
+  source_uri : varchar
+  classification : varchar
+  checksum : varchar
+  created_at : timestamp
+}
+
+entity "chunk / фрагмент документа" as chunk {
+  * id : uuid <<PK>>
+  --
+  document_id : uuid <<FK>>
+  tenant_id : uuid <<FK>>
+  ordinal : int
+  content : text
+  embedding_ref : varchar
+  metadata_json : jsonb
+}
+
+entity "chunk_acl / права на chunk" as chunk_acl {
+  * chunk_id : uuid <<PK, FK>>
+  * group_id : uuid <<PK, FK>>
+}
+
+entity "entity_node / сущность графа" as entity_node {
+  * id : uuid <<PK>>
+  --
+  tenant_id : uuid <<FK>>
+  type : varchar
+  name : varchar
+  normalized_name : varchar
+}
+
+entity "chunk_entity / упоминание сущности" as chunk_entity {
+  * chunk_id : uuid <<PK, FK>>
+  * entity_id : uuid <<PK, FK>>
+  --
+  confidence : numeric
+}
+
+entity "session / сессия" as session {
+  * id : uuid <<PK>>
+  --
+  user_id : uuid <<FK>>
+  created_at : timestamp
+  last_seen_at : timestamp
+}
+
+entity "message / сообщение" as message {
+  * id : uuid <<PK>>
+  --
+  session_id : uuid <<FK>>
+  role : varchar
+  content : text
+  created_at : timestamp
+}
+
+entity "query_log / журнал запроса" as query_log {
+  * id : uuid <<PK>>
+  --
+  user_id : uuid <<FK>>
+  session_id : uuid <<FK>>
+  query_text : text
+  guardrail_events : jsonb
+  latency_ms : int
+  created_at : timestamp
+}
+
+entity "query_citation / цитирование chunk" as query_citation {
+  * query_log_id : uuid <<PK, FK>>
+  * chunk_id : uuid <<PK, FK>>
+  --
+  score : numeric
+  source : varchar
+}
+
+tenant ||--o{ app_user
+tenant ||--o{ access_group
+tenant ||--o{ document
+tenant ||--o{ entity_node
+app_user ||--o{ user_group
+access_group ||--o{ user_group
+document ||--o{ chunk
+chunk ||--o{ chunk_acl
+access_group ||--o{ chunk_acl
+chunk ||--o{ chunk_entity
+entity_node ||--o{ chunk_entity
+app_user ||--o{ session
+session ||--o{ message
+app_user ||--o{ query_log
+session ||--o{ query_log
+query_log ||--o{ query_citation
+chunk ||--o{ query_citation
+
+@enduml

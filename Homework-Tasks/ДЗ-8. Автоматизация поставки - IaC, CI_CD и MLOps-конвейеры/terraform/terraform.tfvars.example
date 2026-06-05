@@ -1,0 +1,8 @@
+aws_region                 = "eu-central-1"
+project_name               = "otus-ai-platform"
+environment                = "prod"
+
+dataset_bucket_name        = "otus-ai-platform-raw-datasets-001"
+feature_bucket_name        = "otus-ai-platform-features-001"
+model_registry_bucket_name = "otus-ai-platform-model-registry-001"
+vector_index_bucket_name   = "otus-ai-platform-vector-index-001"

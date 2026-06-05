@@ -1,0 +1,33 @@
+@startuml C4_Component
+!include <C4/C4_Component>
+
+LAYOUT_WITH_LEGEND()
+
+Person(employee, "Сотрудник", "Запрашивает командировку")
+
+Container_Boundary(managerContainer, "Manager Agent") {
+  Component(intentParser, "Intent Parser", "Python", "Извлекает параметры запроса")
+  Component(taskPlanner, "Task Planner", "Python", "Планирует шаги и делегирует")
+  Component(responseComposer, "Response Composer", "Python", "Собирает финальный ответ")
+}
+
+Container_Boundary(ragContainer, "Compliance/RAG Agent") {
+  Component(ragRetriever, "Retriever", "Python", "Ищет релевантные чанки")
+  Component(reranker, "Reranker", "Python", "Реранжирует кандидатов")
+  Component(policyReasoner, "Policy Reasoner", "Python", "Проверяет соответствие политике")
+}
+
+ContainerDb(vectorDb, "Vector DB", "PGVector/Weaviate", "Эмбеддинги")
+ContainerDb(kg, "Knowledge Graph", "Neo4j", "Правила и исключения")
+
+Rel(employee, intentParser, "Формулирует запрос")
+Rel(intentParser, taskPlanner, "Передает параметры")
+Rel(taskPlanner, ragRetriever, "Запрос политики")
+Rel(ragRetriever, vectorDb, "Семантический поиск")
+Rel(reranker, ragRetriever, "Получает кандидатов")
+Rel(policyReasoner, reranker, "Лучшие фрагменты")
+Rel(policyReasoner, kg, "Связи и исключения")
+Rel(taskPlanner, responseComposer, "Результаты агентов")
+Rel(responseComposer, employee, "Ответ и рекомендации")
+
+@enduml

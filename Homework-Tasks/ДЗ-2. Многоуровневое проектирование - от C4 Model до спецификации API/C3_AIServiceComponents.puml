@@ -1,0 +1,53 @@
+@startuml C3_AIServiceComponents
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Component diagram for AI Recommendation Service
+
+Container(apiGateway, "API Gateway", "Nginx/Kong", "Маршрутизация запросов")
+
+ContainerDb(vectorDB, "Vector Database", "Qdrant", "Эмбеддинги товаров")
+ContainerDb(redisCache, "Redis Cache", "Redis", "Кэш рекомендаций")
+ContainerDb(mysqlDB, "MySQL Database", "MySQL", "Метаданные товаров")
+
+Container_Boundary(aiService, "AI Recommendation Service") {
+    Component(apiController, "API Controller", "FastAPI Router", "REST API эндпоинты для получения рекомендаций")
+    Component(authMiddleware, "Auth Middleware", "FastAPI Middleware", "Проверка JWT токенов и авторизация запросов")
+    
+    Component(recommendationEngine, "Recommendation Engine", "Python", "Ядро генерации рекомендаций, оркестрация компонентов")
+    Component(personalizationManager, "Personalization Manager", "Python", "Управление персонализацией, профили пользователей")
+    
+    Component(ragManager, "RAG Manager", "LangChain", "Retrieval-Augmented Generation для контекстных рекомендаций")
+    Component(llmClient, "LLM Client", "OpenAI SDK/vLLM", "Клиент для работы с языковыми моделями")
+    Component(promptTemplateFactory, "Prompt Template Factory", "Jinja2", "Генерация и управление промптами для LLM")
+    
+    Component(vectorDBClient, "Vector DB Client", "Qdrant Client", "Клиент для работы с векторной базой данных")
+    Component(cacheManager, "Cache Manager", "Redis Client", "Управление кэшем рекомендаций")
+    Component(eventLogger, "Event Logger", "Python Logging", "Логирование событий и метрик")
+}
+
+Rel(apiGateway, apiController, "Отправляет запросы", "HTTP/JSON")
+
+Rel(apiController, authMiddleware, "Проверяет авторизацию", "")
+Rel(apiController, recommendationEngine, "Запрашивает рекомендации", "")
+
+Rel(recommendationEngine, personalizationManager, "Получает профиль пользователя", "")
+Rel(recommendationEngine, ragManager, "Запрашивает контекст и генерацию", "")
+Rel(recommendationEngine, cacheManager, "Проверяет/обновляет кэш", "")
+Rel(recommendationEngine, eventLogger, "Логирует события", "")
+
+Rel(personalizationManager, cacheManager, "Кэширует профили", "")
+
+Rel(ragManager, vectorDBClient, "Ищет релевантные товары", "")
+Rel(ragManager, llmClient, "Генерирует описания", "")
+Rel(ragManager, promptTemplateFactory, "Создает промпты", "")
+
+Rel(llmClient, promptTemplateFactory, "Использует шаблоны", "")
+
+Rel(vectorDBClient, vectorDB, "Запрашивает векторы", "gRPC")
+Rel(cacheManager, redisCache, "Читает/пишет", "Redis Protocol")
+
+Rel(recommendationEngine, mysqlDB, "Обогащает данные о товарах", "MySQL Protocol")
+
+@enduml

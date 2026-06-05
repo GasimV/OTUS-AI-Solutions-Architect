@@ -1,0 +1,95 @@
+@startuml AlternativeSequence_Detailed
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam sequenceMessageAlign center
+
+title Детальная Sequence Diagram: Получение рекомендаций
+
+actor "Покупатель" as Customer
+participant "Web App" as WebApp
+participant "API Gateway" as Gateway
+participant "AI Service\nAPI Controller" as Controller
+participant "Auth\nMiddleware" as Auth
+participant "Recommendation\nEngine" as Engine
+participant "Cache\nManager" as Cache
+participant "Vector DB\nClient" as VectorClient
+participant "RAG\nManager" as RAG
+participant "LLM\nClient" as LLM
+database "Redis" as Redis
+database "Qdrant" as Qdrant
+database "MySQL" as MySQL
+
+Customer -> WebApp: Открывает главную страницу
+activate WebApp
+
+WebApp -> Gateway: GET /api/recommendations\n?user_id=123&context=homepage&limit=10
+activate Gateway
+
+Gateway -> Controller: Маршрутизирует запрос
+activate Controller
+
+Controller -> Auth: Проверить JWT токен
+activate Auth
+Auth --> Controller: Токен валиден
+deactivate Auth
+
+Controller -> Engine: getRecommendations(userId=123,\ncontext="homepage", limit=10)
+activate Engine
+
+Engine -> Cache: checkCache("user:123:homepage")
+activate Cache
+Cache -> Redis: GET user:123:homepage
+activate Redis
+Redis --> Cache: null (cache miss)
+deactivate Redis
+Cache --> Engine: Кэш не найден
+deactivate Cache
+
+Engine -> VectorClient: findSimilarProducts(userId=123, k=20)
+activate VectorClient
+VectorClient -> Qdrant: search(user_embedding, top_k=20)
+activate Qdrant
+Qdrant --> VectorClient: [product_ids + scores]
+deactivate Qdrant
+VectorClient --> Engine: Список похожих товаров
+deactivate VectorClient
+
+Engine -> MySQL: SELECT * FROM products\nWHERE id IN (...)
+activate MySQL
+MySQL --> Engine: Метаданные товаров\n(цены, наличие, категории)
+deactivate MySQL
+
+Engine -> RAG: generatePersonalizedContent(\nuser=123, products=[...])
+activate RAG
+
+RAG -> LLM: generate(prompt=\n"Создай персонализированное описание...")
+activate LLM
+LLM --> RAG: "Иван, на основе ваших\nинтересов к ноутбукам..."
+deactivate LLM
+
+RAG --> Engine: Персонализированный текст
+deactivate RAG
+
+Engine -> Engine: Формирует итоговый\nответ с top-10
+
+Engine -> Cache: saveToCache("user:123:homepage",\nresult, TTL=300s)
+activate Cache
+Cache -> Redis: SETEX user:123:homepage 300 {...}
+activate Redis
+Redis --> Cache: OK
+deactivate Redis
+deactivate Cache
+
+Engine --> Controller: RecommendationResponse
+deactivate Engine
+
+Controller --> Gateway: HTTP 200 OK\n{recommendations: [...]}
+deactivate Controller
+
+Gateway --> WebApp: JSON Response
+deactivate Gateway
+
+WebApp --> Customer: Отображает блок\n"Специально для вас"
+deactivate WebApp
+
+@enduml

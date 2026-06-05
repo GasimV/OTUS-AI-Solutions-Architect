@@ -1,0 +1,36 @@
+@startuml C4_Component_Agent
+!include <C4/C4_Component>
+
+LAYOUT_WITH_LEGEND()
+
+title C4 Уровень 3 - Компоненты агента
+
+Container_Boundary(agent, "LangGraph-оркестратор") {
+    Component(input, "Узел входных Guardrails", "Guardrails", "Выявляет prompt injection и маскирует PII до поиска")
+    Component(planner, "Планировщик / машина состояний", "LangGraph", "Управляет переходами состояний и agent loop")
+    Component(memory, "Модуль памяти", "Python", "Хранит контекст сессии, цитаты и события политик")
+    Component(retriever, "Инструмент поиска", "Qdrant client", "Ищет доступные чанки по vector similarity и ACL-фильтрам")
+    Component(graph, "Инструмент расширения графа", "Neo4j driver", "Находит связанные чанки через общие сущности")
+    Component(reranker, "Реранкер", "Python", "Объединяет векторные и графовые evidence")
+    Component(generator, "LLM-инструмент", "vLLM client", "Генерирует grounded answer только по разрешенному контексту")
+    Component(output, "Узел выходных Guardrails", "Guardrails", "Маскирует PII и фильтрует недоступные цитаты")
+}
+
+ContainerDb(qdrant, "Qdrant", "Векторная БД", "Векторы чанков и ACL payload")
+ContainerDb(neo4j, "Neo4j", "Графовая БД", "Граф Document-Chunk-Entity")
+Container(llm, "vLLM", "LLM serving", "Локальная модель Qwen")
+
+Rel(input, planner, "Передает очищенный запрос")
+Rel(planner, memory, "Читает/пишет состояние сессии")
+Rel(planner, retriever, "Вызывает")
+Rel(retriever, qdrant, "Ищет", "HTTP")
+Rel(planner, graph, "Вызывает")
+Rel(graph, neo4j, "Расширяет граф", "Bolt")
+Rel(retriever, reranker, "Seed chunks")
+Rel(graph, reranker, "Соседние чанки")
+Rel(reranker, generator, "Разрешенный контекст")
+Rel(generator, llm, "Генерирует", "HTTP")
+Rel(generator, output, "Черновик ответа")
+Rel(output, memory, "Сохраняет цитаты и события")
+
+@enduml

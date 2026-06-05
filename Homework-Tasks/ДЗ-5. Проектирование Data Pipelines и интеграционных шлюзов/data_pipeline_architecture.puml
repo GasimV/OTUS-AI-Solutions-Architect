@@ -1,0 +1,186 @@
+@startuml Data Pipeline Architecture - Recommendation System
+
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam componentStyle rectangle
+skinparam defaultFontSize 12
+skinparam padding 5
+skinparam nodesep 60
+skinparam ranksep 40
+
+title Архитектура Data Pipeline для системы рекомендаций\n(Kappa-inspired Architecture)
+
+' ============================================================
+' DATA SOURCES
+' ============================================================
+package "Источники данных" as sources #E8F5E9 {
+    component "Клики / просмотры\n пользователей" as clicks #C8E6C9
+    component "Добавления в корзину\nпокупки" as cart #C8E6C9
+    component "ERP-система\n(каталог товаров)" as erp #C8E6C9
+    component "CRM-система\n(профили клиентов)" as crm #C8E6C9
+}
+
+' ============================================================
+' INGESTION LAYER
+' ============================================================
+package "Слой приёма данных (Ingestion)" as ingestion #E3F2FD {
+    component "Apache Kafka\n(Event Streaming)" as kafka #BBDEFB {
+        component "topic: user-clicks" as t1 #90CAF9
+        component "topic: user-cart" as t2 #90CAF9
+        component "topic: catalog-updates" as t3 #90CAF9
+    }
+    component "Apache Airflow\n(Batch Orchestrator)" as airflow #BBDEFB
+}
+
+' ============================================================
+' PROCESSING LAYER
+' ============================================================
+package "Слой обработки (Processing)" as processing #FFF3E0 {
+    package "Stream Processing" as stream_proc #FFE0B2 {
+        component "Apache Flink\n(Real-time ETL)" as flink #FFCC80
+        note right of flink
+            - Дедупликация событий
+            - Валидация схемы
+            - Обогащение данных
+            - Агрегация окон (5 мин)
+        end note
+    }
+    package "Batch Processing" as batch_proc #FFE0B2 {
+        component "Apache Spark\n(Batch ETL)" as spark #FFCC80
+        note right of spark
+            - Полная очистка каталога
+            - Дедупликация товаров
+            - Нормализация атрибутов
+            - Генерация item-эмбеддингов
+        end note
+    }
+    package "ML Processing" as ml_proc #FFE0B2 {
+        component "Embedding Service\n(PyTorch / SentenceTransformers)" as embedder #FFCC80
+        note right of embedder
+            - User-эмбеддинги (по сессиям)
+            - Item-эмбеддинги (по описаниям)
+            - Периодический ретрейнинг
+        end note
+    }
+}
+
+' ============================================================
+' DATA QUALITY LAYER
+' ============================================================
+package "Контроль качества (Data Quality)" as dq_layer #FCE4EC {
+    component "Great Expectations\n(Data Validation)" as great_exp #F8BBD0
+    note bottom of great_exp
+        - Проверка полноты
+        - Проверка формата
+        - Выявление аномалий
+        - Schema validation
+    end note
+}
+
+' ============================================================
+' STORAGE LAYER
+' ============================================================
+package "Слой хранения (Storage)" as storage #F3E5F5 {
+    component "Amazon S3 / MinIO\n(Data Lake)" as s3 #CE93D8 {
+        component "raw/" as raw #E1BEE7
+        component "cleaned/" as cleaned #E1BEE7
+        component "features/" as features_s3 #E1BEE7
+    }
+    component "Feast\n(Feature Store)" as feast #CE93D8 {
+        component "Offline Store\n(PostgreSQL/Redshift)" as offline_store #E1BEE7
+        component "Online Store\n(Redis)" as online_store #E1BEE7
+    }
+    component "Pinecone / Qdrant\n(Vector DB)" as vectordb #CE93D8
+    component "PostgreSQL\n(Metadata & Catalog)" as postgres #CE93D8
+}
+
+' ============================================================
+' SERVING LAYER
+' ============================================================
+package "Слой инференса (Serving)" as serving #E0F7FA {
+    component "Recommendation\nAPI Service" as rec_api #B2EBF2
+    component "ML Model\n(TorchServe / Triton)" as model_serve #B2EBF2
+    component "ANN Search\n(Approximate Nearest Neighbor)" as ann #B2EBF2
+}
+
+' ============================================================
+' MONITORING
+' ============================================================
+package "Мониторинг & Governance" as monitoring #EFEBE9 {
+    component "Prometheus + Grafana\n(Pipeline Metrics)" as prometheus #D7CCC8
+    component "MLflow\n(Model Registry &\nExperiment Tracking)" as mlflow #D7CCC8
+    component "Data Lineage\n(Apache Atlas)" as atlas #D7CCC8
+}
+
+' ============================================================
+' CONNECTIONS - Data Sources -> Ingestion
+' ============================================================
+clicks -down-> t1 : <<stream>>\nWebSocket / SDK
+cart -down-> t2 : <<stream>>\nWebSocket / SDK
+erp -down-> airflow : <<batch>>\nAPI / JDBC\n(ежедневно)
+crm -down-> airflow : <<batch>>\nAPI\n(ежедневно)
+airflow -down-> t3 : публикация\nобновлений
+
+' ============================================================
+' CONNECTIONS - Ingestion -> Processing
+' ============================================================
+t1 -down-> flink
+t2 -down-> flink
+t3 -down-> spark
+airflow -down-> spark : оркестрация
+
+' ============================================================
+' CONNECTIONS - Processing -> Quality -> Storage
+' ============================================================
+flink -down-> great_exp : валидация стриминговых данных \n\n
+spark -down-> great_exp : валидация батч-данных
+
+great_exp -down-> raw : сырые данные\n(Parquet)
+great_exp -down-> cleaned : очищенные данные\n(Parquet)
+
+cleaned -right-> embedder : данные для\nвекторизации
+spark -down-> embedder : item-описания
+
+embedder -down-> vectordb : эмбеддинги\n(vectors)
+cleaned -down-> feast : фичи для\nобучения
+
+feast -[hidden]down-> offline_store
+feast -[hidden]down-> online_store
+
+' ============================================================
+' CONNECTIONS - Storage -> Serving
+' ============================================================
+online_store -down-> rec_api : user features\n(< 10 ms)
+vectordb -down-> ann : vector search\n(< 50 ms)
+ann -left-> rec_api : top-K кандидаты
+model_serve -left-> rec_api : scoring /\nre-ranking
+
+offline_store -down-> model_serve : training data\n(batch retrain)
+mlflow -left-> model_serve : model artifacts
+
+' ============================================================
+' CONNECTIONS - Monitoring
+' ============================================================
+flink ..> prometheus : метрики\nlatency, throughput
+spark ..> prometheus : метрики\njob status
+rec_api ..> prometheus : метрики\nAPI latency, errors
+model_serve ..> mlflow : model versions\n& metrics
+great_exp ..> atlas : data lineage
+
+' ============================================================
+' LEGEND
+' ============================================================
+legend bottom right
+    |= Тип потока |= Описание |
+    | ——> | Stream (real-time) |
+    | ——> | Batch (scheduled) |
+    | ..> | Monitoring / Metadata |
+    |= Хранилище |= Назначение |
+    | S3 / MinIO | Data Lake (raw + cleaned) |
+    | Feast | Feature Store (offline + online) |
+    | Pinecone / Qdrant | Vector DB (эмбеддинги) |
+    | PostgreSQL | Metadata & каталог |
+    | Redis | Online feature serving |
+end legend
+
+@enduml

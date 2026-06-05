@@ -1,0 +1,570 @@
+openapi: 3.0.3
+info:
+  title: TechnoMart AI Recommendation Service API
+  description: |
+    API для взаимодействия между Backend и AI Service для получения персонализированных рекомендаций товаров.
+    
+    ## Особенности
+    - Персонализированные рекомендации на основе истории пользователя
+    - Генерация описаний с помощью LLM
+    - Кэширование для обеспечения SLA < 200ms
+    - Поддержка A/B тестирования
+    
+  version: 1.0.0
+  contact:
+    name: AI Team
+    email: ai-team@technomart.ru
+  license:
+    name: Proprietary
+
+servers:
+  - url: https://api.technomart.ru/ai/v1
+    description: Production
+  - url: https://api-staging.technomart.ru/ai/v1
+    description: Staging
+  - url: http://localhost:8000/ai/v1
+    description: Local Development
+
+tags:
+  - name: recommendations
+    description: Операции получения рекомендаций
+  - name: health
+    description: Проверка здоровья сервиса
+
+paths:
+  /recommendations:
+    get:
+      tags:
+        - recommendations
+      summary: Получить персонализированные рекомендации
+      description: |
+        Возвращает список рекомендованных товаров с персонализированными описаниями.
+        Учитывает историю просмотров, покупок и контекст сессии.
+      operationId: getRecommendations
+      
+      parameters:
+        - name: user_id
+          in: query
+          description: Идентификатор пользователя (опционально для анонимных)
+          required: false
+          schema:
+            type: string
+            example: "user_12345"
+        
+        - name: session_id
+          in: query
+          description: Идентификатор сессии для анонимных пользователей
+          required: false
+          schema:
+            type: string
+            example: "sess_abc123xyz"
+        
+        - name: context
+          in: query
+          description: Контекст запроса (homepage, product_page, cart, etc.)
+          required: true
+          schema:
+            type: string
+            enum: [homepage, product_page, cart, checkout, category_page]
+            example: "homepage"
+        
+        - name: limit
+          in: query
+          description: Максимальное количество рекомендаций
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+            example: 10
+        
+        - name: current_product_id
+          in: query
+          description: ID текущего товара (для контекста product_page)
+          required: false
+          schema:
+            type: string
+            example: "prod_98765"
+        
+        - name: exclude_purchased
+          in: query
+          description: Исключить уже купленные товары
+          required: false
+          schema:
+            type: boolean
+            default: true
+        
+        - name: ab_test_variant
+          in: query
+          description: Вариант A/B теста
+          required: false
+          schema:
+            type: string
+            enum: [control, variant_a, variant_b]
+            example: "variant_a"
+      
+      responses:
+        '200':
+          description: Успешный ответ с рекомендациями
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationResponse'
+              examples:
+                homepage_recommendations:
+                  summary: Рекомендации на главной странице
+                  value:
+                    request_id: "req_abc123"
+                    user_id: "user_12345"
+                    context: "homepage"
+                    personalized_title: "Иван, специально для вас"
+                    personalized_description: "На основе ваших недавних просмотров ноутбуков, мы подобрали отличные аксессуары для повышения продуктивности"
+                    recommendations:
+                      - product_id: "prod_001"
+                        name: "Беспроводная мышь Logitech MX Master 3"
+                        price: 8990.00
+                        currency: "RUB"
+                        image_url: "https://cdn.technomart.ru/products/prod_001.jpg"
+                        category: "Компьютерные аксессуары"
+                        in_stock: true
+                        score: 0.95
+                        reason: "Отлично сочетается с просмотренными ноутбуками"
+                      - product_id: "prod_002"
+                        name: "Подставка для ноутбука Xiaomi"
+                        price: 2490.00
+                        currency: "RUB"
+                        image_url: "https://cdn.technomart.ru/products/prod_002.jpg"
+                        category: "Компьютерные аксессуары"
+                        in_stock: true
+                        score: 0.89
+                        reason: "Эргономичное решение для работы"
+                    metadata:
+                      model_version: "v2.3.1"
+                      response_time_ms: 145
+                      cache_hit: false
+                      ab_test_variant: "variant_a"
+                    timestamp: "2026-01-22T10:30:45Z"
+        
+        '400':
+          description: Некорректный запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missing_context:
+                  summary: Отсутствует обязательный параметр context
+                  value:
+                    error:
+                      code: "INVALID_REQUEST"
+                      message: "Missing required parameter: context"
+                      details:
+                        field: "context"
+                        reason: "Field is required"
+                    request_id: "req_xyz789"
+                    timestamp: "2026-01-22T10:30:45Z"
+        
+        '401':
+          description: Ошибка авторизации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        
+        '429':
+          description: Превышен лимит запросов
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        
+        '503':
+          description: Сервис временно недоступен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+
+  /recommendations/batch:
+    post:
+      tags:
+        - recommendations
+      summary: Получить рекомендации для нескольких пользователей (batch)
+      description: Пакетная обработка запросов рекомендаций для email-рассылок
+      operationId: getBatchRecommendations
+      
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchRecommendationRequest'
+            example:
+              users:
+                - user_id: "user_001"
+                  context: "email_campaign"
+                  limit: 5
+                - user_id: "user_002"
+                  context: "email_campaign"
+                  limit: 5
+              campaign_id: "campaign_winter_2026"
+      
+      responses:
+        '200':
+          description: Успешный пакетный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchRecommendationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+      
+      security:
+        - BearerAuth: []
+
+  /health:
+    get:
+      tags:
+        - health
+      summary: Проверка здоровья сервиса
+      description: Возвращает статус сервиса и его зависимостей
+      operationId: healthCheck
+      
+      responses:
+        '200':
+          description: Сервис работает нормально
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: "healthy"
+                version: "1.0.0"
+                timestamp: "2026-01-22T10:30:45Z"
+                dependencies:
+                  vector_db:
+                    status: "healthy"
+                    latency_ms: 12
+                  redis_cache:
+                    status: "healthy"
+                    latency_ms: 3
+                  mysql_db:
+                    status: "healthy"
+                    latency_ms: 8
+                  llm_service:
+                    status: "healthy"
+                    latency_ms: 250
+        
+        '503':
+          description: Сервис недоступен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /health/ready:
+    get:
+      tags:
+        - health
+      summary: Проверка готовности к обработке запросов
+      operationId: readinessCheck
+      
+      responses:
+        '200':
+          description: Сервис готов
+        '503':
+          description: Сервис не готов
+
+components:
+  schemas:
+    RecommendationResponse:
+      type: object
+      required:
+        - request_id
+        - context
+        - recommendations
+        - timestamp
+      properties:
+        request_id:
+          type: string
+          description: Уникальный идентификатор запроса
+          example: "req_abc123"
+        user_id:
+          type: string
+          description: ID пользователя (если авторизован)
+          example: "user_12345"
+        session_id:
+          type: string
+          description: ID сессии
+          example: "sess_abc123xyz"
+        context:
+          type: string
+          description: Контекст запроса
+          example: "homepage"
+        personalized_title:
+          type: string
+          description: Персонализированный заголовок блока
+          example: "Специально для вас, Иван"
+        personalized_description:
+          type: string
+          description: Персонализированное описание подборки
+          example: "На основе ваших интересов мы подобрали эти товары"
+        recommendations:
+          type: array
+          description: Список рекомендованных товаров
+          items:
+            $ref: '#/components/schemas/ProductRecommendation'
+        metadata:
+          $ref: '#/components/schemas/ResponseMetadata'
+        timestamp:
+          type: string
+          format: date-time
+          description: Время генерации ответа
+          example: "2026-01-22T10:30:45Z"
+    
+    ProductRecommendation:
+      type: object
+      required:
+        - product_id
+        - name
+        - price
+        - currency
+        - score
+      properties:
+        product_id:
+          type: string
+          description: Уникальный идентификатор товара
+          example: "prod_001"
+        name:
+          type: string
+          description: Название товара
+          example: "Беспроводная мышь Logitech MX Master 3"
+        price:
+          type: number
+          format: float
+          description: Цена товара
+          example: 8990.00
+        currency:
+          type: string
+          description: Валюта
+          example: "RUB"
+        image_url:
+          type: string
+          format: uri
+          description: URL изображения товара
+          example: "https://cdn.technomart.ru/products/prod_001.jpg"
+        category:
+          type: string
+          description: Категория товара
+          example: "Компьютерные аксессуары"
+        in_stock:
+          type: boolean
+          description: Наличие на складе
+          example: true
+        score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Оценка релевантности (0-1)
+          example: 0.95
+        reason:
+          type: string
+          description: Причина рекомендации (сгенерировано LLM)
+          example: "Отлично сочетается с просмотренными ноутбуками"
+        discount_percentage:
+          type: integer
+          description: Процент скидки
+          example: 15
+    
+    ResponseMetadata:
+      type: object
+      properties:
+        model_version:
+          type: string
+          description: Версия модели рекомендаций
+          example: "v2.3.1"
+        response_time_ms:
+          type: integer
+          description: Время обработки в миллисекундах
+          example: 145
+        cache_hit:
+          type: boolean
+          description: Был ли использован кэш
+          example: false
+        ab_test_variant:
+          type: string
+          description: Вариант A/B теста
+          example: "variant_a"
+    
+    BatchRecommendationRequest:
+      type: object
+      required:
+        - users
+      properties:
+        users:
+          type: array
+          description: Список пользователей для обработки
+          maxItems: 1000
+          items:
+            type: object
+            required:
+              - user_id
+              - context
+            properties:
+              user_id:
+                type: string
+              context:
+                type: string
+              limit:
+                type: integer
+                default: 10
+        campaign_id:
+          type: string
+          description: ID маркетинговой кампании
+          example: "campaign_winter_2026"
+    
+    BatchRecommendationResponse:
+      type: object
+      properties:
+        request_id:
+          type: string
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecommendationResponse'
+        failed_users:
+          type: array
+          items:
+            type: object
+            properties:
+              user_id:
+                type: string
+              error:
+                type: string
+        timestamp:
+          type: string
+          format: date-time
+    
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - request_id
+        - timestamp
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              description: Код ошибки
+              enum:
+                - INVALID_REQUEST
+                - UNAUTHORIZED
+                - FORBIDDEN
+                - NOT_FOUND
+                - RATE_LIMIT_EXCEEDED
+                - INTERNAL_ERROR
+                - SERVICE_UNAVAILABLE
+              example: "INVALID_REQUEST"
+            message:
+              type: string
+              description: Человекочитаемое описание ошибки
+              example: "Missing required parameter: context"
+            details:
+              type: object
+              description: Дополнительные детали ошибки
+              additionalProperties: true
+        request_id:
+          type: string
+          description: ID запроса для трейсинга
+          example: "req_xyz789"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-01-22T10:30:45Z"
+    
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - version
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+          example: "healthy"
+        version:
+          type: string
+          example: "1.0.0"
+        timestamp:
+          type: string
+          format: date-time
+        dependencies:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              status:
+                type: string
+                enum: [healthy, unhealthy]
+              latency_ms:
+                type: integer
+
+  responses:
+    BadRequest:
+      description: Некорректный запрос
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    
+    Unauthorized:
+      description: Не авторизован
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    
+    InternalError:
+      description: Внутренняя ошибка сервера
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT токен для авторизации
+    
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API ключ для сервисной авторизации
+
+security:
+  - BearerAuth: []
+  - ApiKeyAuth: []

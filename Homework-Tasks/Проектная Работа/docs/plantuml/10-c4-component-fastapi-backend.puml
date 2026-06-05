@@ -1,0 +1,49 @@
+@startuml C4_Component_FastAPI_Backend
+!include <C4/C4_Component>
+
+LAYOUT_WITH_LEGEND()
+
+title C4 Уровень 3 - Компоненты FastAPI Backend
+
+Container_Boundary(api, "FastAPI Backend") {
+    Component(rest, "REST API endpoints", "FastAPI routers", "Прием команд ingest/query, healthcheck и выдача OpenAPI")
+    Component(stream, "SSE streaming endpoint", "FastAPI StreamingResponse", "Потоковая отдача ответа через POST /query/stream")
+    Component(validation, "Валидация DTO", "Pydantic models", "Проверяет UserPayload, IngestPayload и QueryPayload")
+    Component(identity, "Identity claims adapter", "Python", "Принимает user_id, tenant_id и groups от Gateway/IdP")
+    Component(audit, "Audit hooks", "Python / future SQL repository", "Фиксирует запросы, citations, guardrail_events и ошибки политик")
+    Component(metrics, "Metrics middleware", "prometheus-fastapi-instrumentator", "Публикует /metrics для Prometheus")
+    Component(config, "Runtime configuration", "env variables", "Выбор Qdrant/Neo4j/in-memory, LLM mode и URLs сервисов")
+    Component(agent_client, "Agent invocation adapter", "Python call / future gRPC", "Запускает LangGraph-оркестратор и преобразует ответ")
+}
+
+Container(gateway, "API Gateway", "Reverse proxy", "TLS termination, rate limiting, проброс аутентификации")
+Container(agent, "LangGraph-оркестратор", "Python / LangGraph", "Guardrails, retrieval, graph expansion, generation")
+ContainerDb(postgres, "Postgres", "SQL", "Сессии, журналы запросов, метаданные аудита")
+Container(vault, "Vault", "Secrets", "Runtime-секреты и сервисные учетные данные")
+Container(prometheus, "Prometheus", "Metrics", "Сбор метрик API")
+Container(otel, "OpenTelemetry Collector", "Tracing", "Целевой экспорт трейсов")
+
+Rel(gateway, rest, "POST /ingest, POST /query, GET /health", "HTTP")
+Rel(gateway, stream, "POST /query/stream", "HTTP/SSE")
+Rel(rest, validation, "Проверяет request body")
+Rel(stream, validation, "Проверяет request body")
+Rel(validation, identity, "Передает identity claims")
+Rel(rest, agent_client, "QueryRequest / DocumentInput")
+Rel(stream, agent_client, "QueryRequest")
+Rel(agent_client, agent, "Вызывает agent.ingest / agent.answer", "in-process MVP")
+Rel(rest, audit, "Записывает события запроса")
+Rel(stream, audit, "Записывает события stream-запроса")
+Rel(audit, postgres, "Сохраняет аудит", "SQL / target")
+Rel(config, vault, "Получает секреты", "HTTP / target")
+Rel(metrics, prometheus, "Публикует /metrics")
+Rel(rest, otel, "Трейсы request lifecycle", "OTLP / target")
+Rel(stream, otel, "Трейсы streaming lifecycle", "OTLP / target")
+
+note bottom of agent_client
+В текущем MVP FastAPI и LangGraph-агент находятся
+в одном Python API container и вызываются in-process.
+В production контракт допускает вынос оркестратора
+за gRPC/HTTP boundary без изменения API Gateway.
+end note
+
+@enduml

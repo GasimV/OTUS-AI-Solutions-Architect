@@ -1,0 +1,95 @@
+@startuml
+title CI/CD + MLOps pipeline for AI service
+left to right direction
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam packageStyle rectangle
+skinparam componentStyle rectangle
+skinparam ArrowColor #4A5568
+skinparam packageBorderColor #2D3748
+skinparam packageBackgroundColor #F7FAFC
+
+actor Developer
+
+package "Source Control" {
+  component "Application Repo" as AppRepo
+  component "Deployment Manifest Repo\n(image tag + model version)" as DeployRepo
+}
+
+package "CI/CD" {
+  component "CI Runner\n(GitHub Actions / GitLab CI)" as CI
+  component "Build Docker Image" as Build
+  component "Unit Tests" as Unit
+  component "Push Image to ECR" as ECRPush
+  component "Deploy to Staging" as Staging
+  component "E2E + Smoke Tests" as E2E
+  component "GitOps Deploy to Prod\n(Argo CD)" as ProdDeploy
+  component "Canary Controller\n(Argo Rollouts)" as Canary
+}
+
+package "Infrastructure" {
+  database "ECR" as ECR
+  node "Amazon EKS" as EKS
+  database "S3 Raw Datasets" as RawS3
+  database "S3 Features" as FeatureS3
+  database "S3 Model Registry Artifacts" as ModelS3
+  database "S3 Vector Index Snapshots" as VectorS3
+}
+
+package "MLOps" {
+  component "Airflow Trigger" as Airflow
+  component "Feature Engineering" as Features
+  component "Retrain Model" as Train
+  component "Model Validation" as Validate
+  component "MLflow Model Registry" as Registry
+  component "Rebuild Vector Index" as Reindex
+}
+
+package "Observability" {
+  component "Prometheus / Grafana" as Metrics
+  component "Logs / Traces / Alerts" as Alerts
+  component "Auto Rollback" as Rollback
+}
+
+Developer --> AppRepo : commit code
+AppRepo --> CI : webhook
+CI --> Build
+Build --> Unit
+Unit --> ECRPush : tests passed
+ECRPush --> ECR
+ECRPush --> DeployRepo : update image tag
+DeployRepo --> Staging
+Staging --> EKS
+Staging --> E2E
+E2E --> ProdDeploy : staging passed
+ProdDeploy --> Canary
+Canary --> EKS : deploy prod
+
+RawS3 --> Airflow : dataset updated
+Airflow --> Features
+Features --> FeatureS3
+Features --> Train
+Train --> Validate
+Validate --> Registry : quality gate passed
+Registry --> ModelS3 : store model artifact
+Registry --> Reindex : approved model
+Reindex --> VectorS3
+Registry --> DeployRepo : update model version
+
+EKS --> Metrics
+EKS --> Alerts
+Canary --> Metrics : 1% -> 5% -> 100%
+Metrics --> Rollback : SLA/SLO violation
+Alerts --> Rollback
+Rollback --> EKS : restore stable ReplicaSet
+
+note bottom of DeployRepo
+Single manifest couples immutable
+container image and approved model version.
+end note
+
+note right of Registry
+Approval in Model Registry is the bridge
+between retraining and production delivery.
+end note
+@enduml

@@ -1,0 +1,118 @@
+@startuml Deployment_Prod_K8s
+title Production-развертывание - on-prem Kubernetes GPU-кластер в дата-центре
+
+skinparam componentStyle rectangle
+
+cloud "Корпоративная сеть" as corp
+cloud "Внутренний registry / хранилище артефактов" as registry
+
+node "Дата-центр / закрытый контур" as dc {
+  node "DMZ-сегмент" as dmz {
+    component "WAF / L7 Firewall" as waf
+    component "Ingress Controller\nNGINX/HAProxy\nтерминация TLS" as ingress
+  }
+
+  node "Kubernetes-кластер" as k8s {
+    frame "Namespace: secure-graphrag-control" as ns_control {
+      component "api Deployment\nFastAPI: 3 реплики\nHPA по RPS/latency" as api
+      component "agent workers\nоркестрация LangGraph\nCPU-реплики" as agent
+      component "OPA / policy sidecar\nбудущее расширение" as opa
+    }
+
+    frame "Namespace: secure-graphrag-model" as ns_model {
+      node "GPU node pool\nNVIDIA L40S/A100/H100 или RTX server GPUs" as gpu_pool {
+        component "vLLM Deployment\nQwen3/DeepSeek/T-lite\nAWQ/GPTQ, tensor parallel" as vllm
+        component "NVIDIA Device Plugin" as nvidia
+      }
+    }
+
+    frame "Namespace: secure-graphrag-data" as ns_data {
+      database "Qdrant StatefulSet\nреплики + persistent volumes\nвекторы + ACL payload" as qdrant
+      database "Neo4j StatefulSet / кластер\nграф знаний\nDocument-Chunk-Entity" as neo4j
+      database "Postgres HA\nPatroni/CloudNativePG\nсессии, аудит, метаданные" as postgres
+      component "Vault HA\nинтеграция с KMS/HSM\nсекреты и динамические учетные данные" as vault
+    }
+
+    frame "Namespace: observability" as ns_obs {
+      component "OpenTelemetry Collector\nтрейсы/логи/метрики" as otel
+      component "Prometheus\nхранение метрик" as prometheus
+      component "Grafana\nдашборды" as grafana
+      component "Alertmanager\nалерты в SOC/NOC" as alertmanager
+    }
+
+    frame "Политики кластера" as policies {
+      component "NetworkPolicy\nтолько DMZ -> Control -> Data/Model" as netpol
+      component "RBAC / ServiceAccounts\nминимальные привилегии" as rbac
+      component "PodSecurity / политики образов\nподписанные образы" as podsec
+    }
+  }
+
+  node "Слой хранения" as storage {
+    database "Ceph/NFS/SAN\nPersistentVolumeClaims" as pv
+    folder "Репозиторий моделей\nвеса моделей только для чтения" as models
+    folder "Хранилище резервных копий\nsnapshots + WAL archive" as backup
+  }
+
+  node "Корпоративные сервисы" as enterprise {
+    component "AD/LDAP/Keycloak\nидентификация и группы" as idp
+    component "SIEM\nаудит безопасности" as siem
+    component "DMS / файловый шлюз\nPDF, сканы, чертежи" as dms
+  }
+}
+
+corp --> waf : HTTPS
+waf --> ingress : отфильтрованный HTTPS
+ingress --> api : маршруты /api и /query/stream
+api --> agent : внутренний HTTP/gRPC
+agent --> qdrant : векторный поиск с tenant/group ACL
+agent --> neo4j : расширение графа по сущностям
+agent --> vllm : OpenAI-compatible inference
+api --> postgres : сессии и аудит запросов
+api --> vault : получение секретов
+api --> idp : проверка токена / group claims
+dms --> api : batch ingest / контролируемая загрузка
+
+vllm --> models : чтение весов моделей
+qdrant --> pv : PVC
+neo4j --> pv : PVC
+postgres --> pv : PVC
+postgres --> backup : WAL archive / snapshots
+qdrant --> backup : snapshots
+neo4j --> backup : dumps / snapshots
+
+registry --> k8s : подписанные container images
+nvidia --> vllm : выделение GPU
+netpol .. api : ограничивает egress
+netpol .. qdrant
+netpol .. neo4j
+netpol .. vllm
+rbac .. api
+podsec .. k8s
+
+api --> otel : OTLP traces
+agent --> otel : spans и события политик
+vllm --> prometheus : tokens/sec, latency, GPU metrics
+qdrant --> prometheus : метрики БД
+neo4j --> prometheus : метрики БД
+postgres --> prometheus : метрики БД
+prometheus --> grafana : дашборды
+prometheus --> alertmanager : алерты
+otel --> siem : события безопасности и audit traces
+
+note right of vllm
+Production GPU serving:
+- отдельный GPU node pool
+- реплики vLLM для каждой модели
+- AWQ/GPTQ для экономии VRAM
+- tensor parallel для крупных моделей
+- оптимизация prefix/KV-cache
+end note
+
+note bottom of netpol
+Сегментация:
+DMZ видит только Ingress.
+Control Plane вызывает Data Plane и Model Plane.
+Data Plane не имеет исходящего доступа в интернет.
+end note
+
+@enduml
