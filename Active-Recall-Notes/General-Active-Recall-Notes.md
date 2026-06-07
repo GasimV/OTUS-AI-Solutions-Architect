@@ -118,6 +118,7 @@
   - [Network Operations Center (NOC)](#network-operations-center-noc)
 - [Security, Identity & Compliance](#security-identity-compliance)
   - [VPN Server](#vpn-server)
+  - [Bastion Host / Jump Server](#bastion-host-jump-server)
   - [DMZ and Layer 7 Firewall](#dmz-and-layer-7-firewall)
   - [Air Gap (Networking)](#air-gap-networking)
   - [Payment Card Industry Data Security Standard (PCI DSS)](#payment-card-industry-data-security-standard-pci-dss)
@@ -7918,6 +7919,180 @@ Your device → encrypted tunnel → VPN server → internet
 ```text
 👉 No VPN server = no real VPN, only encrypted networking at best.
 ```
+
+[Back to Contents](#contents)
+
+---
+
+<a id="bastion-host-jump-server"></a>
+
+### Bastion Host / Jump Server
+
+**A bastion host**, also called a **jump server**, **jump host**, or **jump box**, is a hardened and heavily monitored machine used as a secure gateway into private infrastructure.
+
+Its main purpose is to let administrators access private resources, such as databases, backend servers, DMZ systems, or internal management tools, without exposing those resources directly to the public internet.
+
+**Core idea**
+
+```text
+Administrator
+   |
+   v
+Bastion / Jump Server
+   |
+   v
+Private servers / DMZ assets / internal resources
+```
+
+A bastion host acts like a controlled guardhouse: it is the single, monitored choke point where administrative access enters a private network or a separate security zone.
+
+#### Why It Exists
+
+Internal servers should usually not have public IP addresses or open management ports on the internet.
+
+Instead:
+
+- the bastion host is exposed in a controlled way
+- administrators connect to the bastion first
+- from there, they "jump" to private/internal systems
+- all access can be logged, restricted, and monitored centrally
+
+This reduces random internet exposure for sensitive systems.
+
+#### Bastion Host vs. Jump Server
+
+The terms are often used together, but the emphasis is slightly different:
+
+| **Term** | **Main meaning** |
+| --- | --- |
+| **Bastion host** | A hardened host exposed to attack because of its network position. |
+| **Jump server / jump host / jump box** | A controlled access point used to reach systems in another security zone. |
+
+In practice, an admin-access bastion host is usually also a jump server.
+
+#### How It Works
+
+**1. Placement**
+
+A bastion host is commonly placed:
+
+- in a **public subnet** of a cloud VPC
+- in or near a **DMZ**
+- between a trusted admin network and a separate security zone
+- on the public side of a firewall when it must receive untrusted traffic
+
+Common patterns:
+
+```text
+Internet -> Bastion in public subnet -> Private subnet servers
+```
+
+```text
+Trusted admin network -> Jump server -> DMZ systems
+```
+
+In larger networks, bastion hosts may sit between an outside firewall and an inside firewall. In smaller networks, there may be only one firewall, so placement is simpler but the same security principle applies.
+
+**2. Hardening**
+
+A bastion host is hardened because it is more exposed than normal internal servers.
+
+Hardening usually means:
+
+- disabling unnecessary services, ports, and applications
+- allowing only required protocols such as SSH or RDP
+- using a local firewall and strict inbound rules
+- patching the OS and installed software frequently
+- using MFA or strong identity-based authentication
+- limiting which commands or programs can run
+- disabling unnecessary outbound internet access
+
+**3. Proxying / Jumping**
+
+Administrators usually connect using secure remote access protocols:
+
+- **SSH** for Linux/Unix systems
+- **RDP** for Windows systems
+- SSH forwarding, SSH tunneling, or proxy tools such as SOCKS when needed
+
+After logging into the bastion, the administrator connects onward to the private target system.
+
+#### Key Benefits
+
+- **Centralized auditing**: login attempts, sessions, and commands can be tracked in one place.
+- **Reduced attack surface**: internal systems do not need public IP addresses or public management ports.
+- **Strict access control**: access can be limited to specific source IPs, VPN ranges, users, groups, or identities.
+- **Security zone separation**: one controlled system mediates access between networks that should not fully trust each other.
+- **Operational simplicity**: admins have one controlled path into private infrastructure.
+
+#### Common Use Cases
+
+- secure administrator access to private cloud servers
+- managing hosts in a DMZ from a trusted network
+- acting as an authentication gateway
+- VPN alternative for selected administrative access
+- alternative to exposing internal admin tools
+- controlled file transfer path
+- sharing or brokering access to sensitive credentials/resources
+- intrusion detection and activity monitoring point
+- software inventory and management access point
+
+#### Common Implementations
+
+| **Environment** | **Typical implementation** |
+| --- | --- |
+| **AWS** | Small EC2 instance in a public subnet, used to reach private EC2 instances. |
+| **GCP** | Compute Engine VM used as a controlled jump point into private resources. |
+| **Linux/Unix** | Hardened machine running SSH, firewall rules, and sometimes SSH forwarding/tunneling. |
+| **Windows** | Hardened Windows Server running Remote Desktop Services or OpenSSH. |
+
+Examples of systems that can be bastion-like because they are exposed and hardened:
+
+- DNS server
+- mail server
+- FTP server
+- proxy server
+- VPN server
+- web server
+- honeypot
+- load balancer
+
+#### Cloud-Native Alternatives
+
+Modern cloud environments often replace traditional VM-based bastion hosts with managed, identity-aware access services.
+
+Examples:
+
+- **AWS Systems Manager Session Manager (SSM)**: access instances without opening inbound SSH/RDP or assigning public IPs.
+- **Azure Bastion**: browser-based RDP/SSH access to VMs without exposing them publicly.
+- **Identity-aware proxy services**: enforce user identity, policy, logging, and access controls before connecting to internal resources.
+
+These approaches reduce the need to operate and patch a dedicated public VM.
+
+#### Security Risks and Controls
+
+A bastion host improves access control, but it is also a high-value target.
+
+Important controls:
+
+- segment the network properly with subnets, VLANs, route tables, firewalls, and security groups
+- require MFA and strong authentication
+- restrict inbound access by IP address, VPN range, identity, or device posture
+- keep the OS and software up to date
+- use ACLs and least privilege
+- avoid broad outbound internet access from the bastion
+- restrict what programs can run on the bastion
+- enable strong logging, monitoring, and alerting
+- regularly audit accounts, keys, firewall rules, and session logs
+
+**Key point to remember**
+
+```text
+Bastion host = hardened entry point.
+Jump server = controlled bridge into another security zone.
+```
+
+A bastion/jump server protects private systems by making administration pass through one hardened, monitored, and tightly controlled gateway.
 
 [Back to Contents](#contents)
 
