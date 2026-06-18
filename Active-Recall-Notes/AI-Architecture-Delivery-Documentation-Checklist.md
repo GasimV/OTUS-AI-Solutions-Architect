@@ -7,7 +7,7 @@
 1. [Core Flow](#1-core-flow)
 2. [Contract Model](#2-contract-model)
 3. [PoC and Prototype](#3-poc-and-prototype)
-4. [Main Documentation Package](#4-main-documentation-package)
+4. [Main Architectural Design Documentation Package](#4-main-architectural-design-documentation-package)
 5. [Codebase Implementation](#5-codebase-implementation)
 6. [Pilot and Production](#6-pilot-and-production)
 7. [Active Recall](#7-active-recall)
@@ -78,7 +78,7 @@ Customer engagement, feedback, data availability, integrations, and refined requ
 
 ---
 
-## 4. Main Documentation Package
+## 4. Main Architectural Design Documentation Package
 
 ### I. Product and Business
 
@@ -108,6 +108,14 @@ Customer engagement, feedback, data availability, integrations, and refined requ
 
 - Detailed deployment, network, infrastructure, CI/CD, observability, and backup/recovery diagrams.
 - `deployment-ops.md` covering deployment architecture, CI/CD, MLOps, HA/DR, observability, alerting, logging, backup/restore, runbooks, and ADRs.
+
+### V. Codebase Documentation
+
+- `README.md`, ADRs, and API documentation.
+- `docs/coding-standards.md`, `docs/local-development.md`, and `docs/testing-strategy.md`.
+- `docs/architecture-overview.md`, `docs/security-and-governance.md`, and `docs/deployment-ops.md`.
+- `docs/training-strategy.md`, `docs/dataset-engineering.md`, and `docs/evaluation-strategy.md`.
+- `docs/ai-agents-and-agentic-workflows.md` and `docs/tool-contracts.md`.
 
 ### VI. Pitch Deck / Prototype Presentation
 
@@ -145,20 +153,6 @@ Customer engagement, feedback, data availability, integrations, and refined requ
 - Evaluation strategy for model quality, retrieval quality, RAG quality, hallucination/grounding, safety, regression, agent task success, and tool-use correctness.
 - Agentic workflow templates based on LangChain, LangGraph, MCP, and the book **AI Agents and Applications: With LangChain, LangGraph, and MCP** by Roberto Infante.
 - Useful learning references: **Domain-Specific Small Language Models: Efficient AI for local deployment** by Guglielmo Iozzia, Sebastian Raschka's **Build a Large Language Model (From Scratch)**, and Pere Marta's **Rearchitecting LLMs: Structural techniques for efficient models**.
-
-### Key Docs
-
-- `README.md`.
-- ADRs.
-- `docs/coding-standards.md`.
-- `docs/local-development.md`.
-- `docs/testing-strategy.md`.
-- `docs/api-design.md`.
-- `docs/training-strategy.md`.
-- `docs/dataset-engineering.md`.
-- `docs/evaluation-strategy.md`.
-- `docs/ai-agents-and-agentic-workflows.md`.
-- `docs/tool-contracts.md`.
 
 [Back to Contents](#contents)
 
