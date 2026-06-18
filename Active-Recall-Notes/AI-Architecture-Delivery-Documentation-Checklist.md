@@ -88,6 +88,7 @@ Customer engagement, feedback, data availability, integrations, and refined requ
 - Module descriptions and high-level business flows.
 - PoC/MVP scope, assumptions, constraints, and contract model.
 - Security/privacy NFRs: data classification, compliance, user roles, auditability, risk appetite, and AI misuse risks.
+- GenAI evaluation and privacy requirements: acceptance metrics, quality thresholds, test datasets, consent, data residency, privacy budget, and whether FL/PPA is needed.
 
 ### II. HLD
 
@@ -97,6 +98,8 @@ Customer engagement, feedback, data availability, integrations, and refined requ
 - Architecture overview, ADRs, ATAM/trade-off analysis.
 - Diagrams in `.puml` and `.png`; docs in `.md`.
 - Security-by-Design at architecture level: OWASP Top 10 for Agentic Applications / OWASP Top 10 for LLM Applications, Defense-in-Depth, Zero Trust, PoLP, trust boundaries, threat modeling, and security ADRs.
+- GenAI evaluation architecture: offline/online evaluation loops, golden datasets, RAG/agent evaluation points, human review, and quality gates.
+- Privacy-preserving AI architecture: centralized vs federated learning, cross-silo vs cross-device FL, DP, secure aggregation, SMPC/FHE/TEE, and privacy-utility trade-offs.
 
 ### III. LLD
 
@@ -106,12 +109,16 @@ Customer engagement, feedback, data availability, integrations, and refined requ
 - API design in OpenAPI/Swagger `.yml`.
 - ADRs for detailed technical decisions.
 - Detailed security controls: guardrails, prompt-injection defenses, PII sanitization, RBAC/IAM, tool permissions, input/output validation, secrets access, and secure error handling.
+- Detailed GenAI testing design: RAGAS-style metrics, faithfulness/grounding, answer relevance, context precision/recall, hallucination checks, LLM-as-judge, regression suites.
+- Detailed FL/PPA design: client/coordinator flows, aggregation protocol, DP epsilon/delta, privacy accounting, dropout/straggler handling, data/model lineage, and threat model.
 
 ### IV. Deployment / Operations
 
 - Detailed deployment, network, infrastructure, CI/CD, observability, and backup/recovery diagrams.
 - `deployment-ops.md` covering deployment architecture, CI/CD, MLOps, HA/DR, observability, alerting, logging, backup/restore, runbooks, and ADRs.
 - Runtime security: WAF, DLP, Vault/KMS/HSM, network policies, container isolation, SAST/CVE scanning, red teaming, audit logs, and incident response.
+- GenAI quality operations: continuous evaluation in CI/CD, drift/hallucination monitoring, feedback collection, eval dashboards, and rollback gates.
+- FedOps/PPA operations: Kubernetes orchestration, mTLS, resource isolation, key management, privacy-budget observability, GPU/network metrics, payload size, RTT, and straggler tracking.
 
 ### V. Codebase Documentation
 
@@ -121,6 +128,8 @@ Customer engagement, feedback, data availability, integrations, and refined requ
 - `docs/training-strategy.md`, `docs/dataset-engineering.md`, and `docs/evaluation-strategy.md`.
 - `docs/ai-agents-and-agentic-workflows.md` and `docs/tool-contracts.md`.
 - Security documentation: secure coding rules, OWASP/AI threat checklist, dependency scanning, data handling, agent/tool permission rules, and red-team findings.
+- GenAI evaluation docs: metrics, test datasets, golden answers, judge prompts, RAG/agent eval plans, regression policy, and release gates.
+- FL/PPA docs: federation topology, privacy model, DP budget, secure aggregation, SMPC/FHE/TEE choices, participant governance, and FedOps runbooks.
 
 ### VI. Pitch Deck / Prototype Presentation
 
@@ -151,6 +160,8 @@ Customer engagement, feedback, data availability, integrations, and refined requ
 - `evaluation/` for model, retrieval, RAG, agent, and product evaluation.
 - `inference/`, `pipelines/`, `infra/`, `deploy/`, `tests/`.
 - Security implementation: auth, authorization, validation, guardrails, PII masking, secrets handling, sandboxing, logging, and security tests.
+- Evaluation implementation: automated eval harnesses, golden datasets, RAG/agent regression tests, judge prompts, feedback capture, and quality dashboards.
+- FL/PPA implementation: federated clients/coordinator, secure aggregation, DP accounting/configs, privacy-preserving data pipelines, and FedOps deployment manifests.
 
 ### AI/ML and Agentic Additions
 
@@ -158,6 +169,7 @@ Customer engagement, feedback, data availability, integrations, and refined requ
 - Dataset engineering docs for LLMs, embeddings, rerankers, classifiers, extractors, and agent tool-use models.
 - Evaluation strategy for model quality, retrieval quality, RAG quality, hallucination/grounding, safety, regression, agent task success, and tool-use correctness.
 - Agentic workflow templates based on LangChain, LangGraph, MCP, and the book **AI Agents and Applications: With LangChain, LangGraph, and MCP** by Roberto Infante.
+- Privacy-preserving training templates for federated learning, DP, secure aggregation, and FedOps where sensitive data cannot be centralized.
 - Useful learning references: **Domain-Specific Small Language Models: Efficient AI for local deployment** by Guglielmo Iozzia, Sebastian Raschka's **Build a Large Language Model (From Scratch)**, and Pere Marta's **Rearchitecting LLMs: Structural techniques for efficient models**.
 
 [Back to Contents](#contents)
@@ -195,6 +207,7 @@ Production readiness must cover security, observability, reliability, HA/DR, CI/
 - How does Security-by-Design appear across Product/Business, HLD, LLD, Deployment/Ops, Codebase Documentation, and Implementation?
 - What is the difference between actual implementation folders and documentation folders?
 - What must be added for LLMs, retrieval embeddings, and AI agents?
+- How are GenAI evaluation/testing and privacy-preserving/federated learning handled across all layers?
 - What must be ready before Pilot and Production?
 
 ### One-Sentence Recall
