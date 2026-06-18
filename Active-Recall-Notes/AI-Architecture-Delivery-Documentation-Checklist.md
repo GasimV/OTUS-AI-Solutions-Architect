@@ -9,7 +9,7 @@
 3. [PoC and Prototype](#3-poc-and-prototype)
 4. [Main Architectural Design Documentation Package](#4-main-architectural-design-documentation-package)
 5. [Codebase Implementation](#5-codebase-implementation)
-6. [Pilot and Production](#6-pilot-and-production)
+6. [Pilot, MVP and Production](#6-pilot-and-production)
 7. [Active Recall](#7-active-recall)
 
 ---
@@ -158,7 +158,7 @@ Customer engagement, feedback, data availability, integrations, and refined requ
 
 ---
 
-## 6. Pilot and Production
+## 6. Pilot, MVP and Production
 
 After MVP scope is agreed, the architect can:
 
