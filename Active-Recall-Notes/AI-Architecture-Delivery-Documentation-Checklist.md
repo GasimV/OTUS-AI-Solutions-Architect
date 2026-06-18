@@ -99,7 +99,7 @@ Customer engagement, feedback, data availability, integrations, and refined requ
 - Diagrams in `.puml` and `.png`; docs in `.md`.
 - Security-by-Design at architecture level: OWASP Top 10 for Agentic Applications / OWASP Top 10 for LLM Applications, Defense-in-Depth, Zero Trust, PoLP, trust boundaries, threat modeling, and security ADRs.
 - GenAI evaluation architecture: offline/online evaluation loops, golden datasets, RAG/agent evaluation points, human review, and quality gates.
-- Privacy-preserving AI architecture: centralized vs federated learning, cross-silo vs cross-device FL, DP, secure aggregation, SMPC/FHE/TEE, and privacy-utility trade-offs.
+- Privacy-preserving AI architecture: centralized vs federated learning, cross-silo vs cross-device FL, DP (Differential Privacy), secure aggregation, SMPC/FHE/TEE, and privacy-utility trade-offs.
 
 ### III. LLD
 
