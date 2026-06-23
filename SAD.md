@@ -20,6 +20,12 @@
    - [4.2 Business Context](#42-business-context)
    - [4.3 Conceptual Solution Overview](#43-conceptual-solution-overview)
    - [4.4 Solution Architecture](#44-solution-architecture)
+     - [4.4.1 Information Architecture](#441-information-architecture)
+     - [4.4.2 Application Architecture](#442-application-architecture)
+     - [4.4.3 Data Architecture](#443-data-architecture)
+     - [4.4.4 Integration Architecture](#444-integration-architecture)
+     - [4.4.5 Infrastructure Architecture](#445-infrastructure-architecture)
+     - [4.4.6 Security Architecture](#446-security-architecture)
    - [4.5 Solution Implementation](#45-solution-implementation)
    - [4.6 Solution Management](#46-solution-management)
    - [4.7 Appendix](#47-appendix)
@@ -260,71 +266,536 @@ The listed views help ensure the SAD covers the system and stakeholder concerns.
 
 ## 4. Structure of the SAD
 
-Use this structure as a reusable SAD skeleton. The exact depth can vary by project size, risk, regulatory expectations, and stakeholder needs.
+The structure of the SAD can differ from project to project depending on stakeholder requirements and the nature of the project.
+
+Examples:
+
+- Creating a new product from the ground up.
+- Modernizing a legacy application.
+- Moving an entire system to the cloud.
+
+For each project, the SAD may differ, but overall it should consider the views of different stakeholders and include a set of sections that cover multiple solution architecture and design aspects.
+
+![Structure of a SAD](<assets/Structure of a SAD.png>)
+
+**Figure: Structure of a SAD**
+
+> The solutions architect may add subsections or remove sections depending on project requirements.
+
+Examples of structure changes:
+
+- Add an **Introduction** section to discuss the document purpose and provide a summary.
+- For a transition project, add a subsection that presents the **existing architecture**, compares it with the **target architecture**, and explains the transition.
 
 ### 4.1 Solution Overview
 
-- **1.1 Solution Purpose**
-- **1.2 Solution Scope**
-  - **1.2.1 In Scope**
-  - **1.2.2 Out of Scope**
-- **1.3 Solution Assumptions**
-- **1.4 Solution Constraints**
-- **1.5 Solution Dependencies**
-- **1.6 Key Architecture Decisions**
+The **Solution Overview** section briefly introduces the solution in a few paragraphs. It describes the function of the solution and its different components at a very high level.
+
+A high-level block diagram can be added to show the major components in one place.
+
+![Solution overview of an e-commerce platform](<assets/Solution overview of an e-commerce platform.png>)
+
+**Figure: Solution overview of an e-commerce platform**
+
+The component descriptions should use simplified language so that business users can understand the overall workings of the solution.
+
+Example: a typical e-commerce order and supply chain management workflow can be explained as follows.
+
+#### Customer Order
+
+- The process begins when a customer places an order through a website or an online marketplace.
+- Customer service assists customers with orders, handles inquiries, and resolves issues that may appear during the order process.
+
+#### Supply Chain and Order Management
+
+- **Sales Order:** once an order is placed, it is recorded as a sales order, which triggers the order fulfillment process.
+- **Inventory Data:** the system checks inventory data to confirm that the ordered items are in stock.
+- **Ship Notification:** after the order is processed and ready for shipment, a notification is sent, possibly including tracking information for the customer.
+
+#### Order Processing
+
+- **Payment:** processes customer payment, including taxes and promotional codes.
+- **Tax:** calculates and applies the correct sales tax based on customer location and purchased items.
+- **Transport:** arranges the logistics for delivering the order to the customer's location.
+- **Order Fulfillment:** includes picking, packing, and preparing the ordered items for shipment.
+- **Shipment:** sends the order out for delivery.
+- **Promotion:** applies discounts or special offers that are part of the sales order.
+- **Notification:** keeps the customer informed about order status.
+- **Return:** handles returns if the customer is not satisfied or if there are order issues.
+- **Cancellation:** processes cancellations if the customer cancels the order before shipment.
+
+These elements allow customer orders to be handled efficiently from placement through delivery.
+
+#### Solution Purpose
+
+The **solution purpose** provides a brief outline of the business concern that the solution solves and the justification for building it.
+
+Example:
+
+- The purpose of an order management solution is to streamline and automate order management within a supply chain.
+- It addresses business concerns around:
+  - Efficiency
+  - Accuracy
+  - Customer satisfaction during order fulfillment
+
+#### Solution Scope
+
+The **solution scope** states the business scope of the proposed solution and clearly describes items that are out of scope.
+
+Example:
+
+- Scope includes end-to-end automation of the order management system, from customer order placement to shipment notification.
+- Scope does not include post-delivery customer engagement, such as:
+  - Feedback collection
+  - Returns processing
+
+#### Solution Assumptions
+
+The **solution assumptions** subsection lists assumptions made by the solutions architect while creating the solution.
+
+Example assumptions:
+
+- Minimum network bandwidth is available to support real-time data processing.
+- Integration is possible with marketplaces and shipping carriers.
+- Customers have access to digital payment methods.
+
+#### Solution Constraints
+
+The **solution constraints** subsection lists technical, business, and resource constraints.
+
+Constraints often come from industry and government compliance requirements. This section can also highlight risks and mitigation plans.
+
+Example constraints:
+
+- The solution must comply with data protection regulations such as **GDPR** for customer data privacy in the EU.
+- The solution must comply with **PCI-DSS** when storing customer payment information in the USA.
+- Resource constraints may include a fixed budget and deployment timeline.
+- Technical constraints may include integration with legacy systems.
+
+#### Solution Dependencies
+
+The **solution dependencies** subsection lists upstream and downstream dependencies.
+
+Example dependencies:
+
+- An e-commerce website must communicate with a shipping system such as **UPS** or **FedEx** to ship packages to customers.
+- The solution depends on real-time inventory data from the inventory management system.
+- The solution requires integration with payment gateways for financial transactions.
+
+#### Key Architecture Decisions
+
+The **key architecture decisions** subsection lists significant problem statements and proposed solutions.
+
+For each major decision, describe:
+
+- Problem statement.
+- Possible options.
+- Pros and cons of each option.
+- Selected decision.
+- Rationale behind the decision.
+
+Example decision: **use a cloud-based platform for scalability**
+
+- Chosen because it can handle varying order volumes.
+- Reduces the need for upfront capital investment.
+- Trade-off: continuous operational expense.
+
+Example decision: **adopt an API-first integration approach**
+
+- Chosen to support flexibility and easier integration with partners and services.
+- Trade-off: increased complexity of API management.
+
+[Back to Contents](#contents)
 
 ### 4.2 Business Context
 
-- **2.1 Business Capabilities**
-- **2.2 Key Business Requirements**
-  - **2.2.1 Key Business Processes**
-  - **2.2.2 Business Stakeholders**
-- **2.3 Non-Functional Requirements**
-  - **2.3.1 Scalability**
-  - **2.3.2 Availability and Reliability**
-  - **2.3.3 Performance**
-  - **2.3.4 Portability**
-  - **2.3.5 Security**
+After giving the solution overview, the SAD should relate the solution to the **business context**.
+
+In the **Business Context** section, the solutions architect provides a high-level overview of the business capabilities and requirements the solution will address.
+
+This section contains only an abstract view of requirements. Detailed requirements should be documented in a separate requirements document, with an external link or reference provided here.
+
+#### Business Capabilities
+
+- Briefly describe the business capabilities for which the solution is being designed.
+- Include the benefits of the capabilities.
+- Explain how those capabilities address customer needs.
+
+#### Key Business Requirements
+
+- List the key business concerns the solution will address.
+- Provide a high-level view of key requirements.
+- Add a reference to the detailed requirements document.
+
+#### Key Business Processes
+
+Solutions architects should show key processes with a business process document.
+
+![Business process diagram of an e-commerce platform](<assets/Business process diagram of an e-commerce platform.png>)
+
+**Figure: Business process diagram of an e-commerce platform**
+
+#### Business Stakeholders
+
+List stakeholders directly or indirectly impacted by the project.
+
+Examples:
+
+- Sponsors
+- Developers
+- End users
+- Vendors
+- Partners
+
+#### Non-Functional Requirements (NFRs)
+
+Solutions architects must pay special attention to **NFRs**, because these are often missed by business users and development teams.
+
+At a high level, NFRs should include:
+
+- **Scalability:** how the application scales as workloads fluctuate.
+  - Example: scale from 1,000 to 10,000 transactions per second, per day, or per month.
+- **Availability and reliability:** acceptable downtime for system availability.
+  - Example: 99.99% availability, or 45 minutes of downtime per month.
+- **Performance:** performance requirements and the ability to handle load increases without affecting end-user experience.
+  - Example: the catalog page must load within 3 seconds.
+- **Portability:** whether the application can run on multiple platforms without additional work.
+  - Example: a mobile app must run on iOS and Android.
+- **Capacity:** the maximum workload the application can handle.
+  - Example: maximum number of users, number of requests, expected response time, and expected application load.
+
+[Back to Contents](#contents)
 
 ### 4.3 Conceptual Solution Overview
 
-- **3.1 Conceptual and Logical Architecture**
+The **Conceptual Solution Overview** section provides an abstract-level diagram that captures the big-picture view of the whole solution, including both business and technical aspects.
+
+> The conceptual view is a good middle point: it gives both business and technical stakeholders a useful system overview.
+
+The conceptual solution overview provides a basis for:
+
+- Analysis
+- Trade-off studies
+- Architecture refinement
+- Architecture optimization
+- Solution design
+- Implementation planning
+
+![Conceptual architecture diagram of an e-commerce platform](<assets/Conceptual architecture diagram of an e-commerce platform.png>)
+
+**Figure: Conceptual architecture diagram of an e-commerce platform**
+
+The conceptual architecture diagram should show:
+
+- Significant modules.
+- Information flowing between modules.
+- A high-level understanding of the overall architecture.
+
+The conceptual view is useful for both business and technical users, but technical users usually need deeper architecture details in the solution architecture section.
+
+[Back to Contents](#contents)
 
 ### 4.4 Solution Architecture
 
-- **4.1 Information Architecture**
-  - **4.1.1 Information Components**
-- **4.2 Application Architecture**
-  - **4.2.1 Application Components**
-- **4.3 Data Architecture**
-  - **4.3.1 Data Flow and Context**
-- **4.4 Integration Architecture**
-  - **4.4.1 Interface Component**
-- **4.5 Infrastructure Architecture**
-  - **4.5.1 Infrastructure Component**
-- **4.6 Security Architecture**
-  - **4.6.1 Identity and Access Management**
-  - **4.6.2 Application Threat Model**
+The **Solution Architecture** section dives deeper into each part of the architecture.
+
+It provides different views that technical teams can use to create detailed designs and work on implementation.
+
+These views may target different groups:
+
+- Developers
+- Infrastructure engineers
+- DevOps engineers
+- Security engineers
+- User experience (**UX**) designers
+
+### 4.4.1 Information Architecture
+
+The **Information Architecture** section provides the user navigation flow for the application.
+
+The solutions architect should include the application navigation structure at a high level.
+
+![Informational architecture diagram of an e-commerce platform](<assets/Informational architecture diagram of an e-commerce platform.png>)
+
+**Figure: Informational architecture diagram of an e-commerce platform**
+
+For example, in an e-commerce website, the information architecture can show that it takes three clicks for the user to navigate to the desired page.
+
+Solutions architects can add more detail, such as:
+
+- Website navigation
+- Taxonomy
+- High-level wireframe
+
+UX designers can use this information to generate a detailed wireframe.
+
+### 4.4.2 Application Architecture
+
+The **Application Architecture** section targets the development team.
+
+It provides implementation details that a software architect or development team can use to build a detailed design.
+
+![Application architecture diagram of an e-commerce platform](<assets/Application architecture diagram of an e-commerce platform.png>)
+
+**Figure: Application architecture diagram of an e-commerce platform**
+
+For a cloud-based e-commerce platform, the application architecture may list technology building blocks such as:
+
+- Caching
+- Networking
+- Content distribution
+- Data storage
+
+Example application architecture components:
+
+- **User interaction:** customers interact with the e-commerce platform through a web interface, beginning with a secure purchase request over **SSL** for encrypted communication.
+- **Content delivery:** **Amazon CloudFront**, a content delivery network (**CDN**), serves static content such as images, stylesheets, and client-side scripts. It reduces latency by caching content closer to the user's location.
+- **Domain Name System (DNS):** **Amazon Route 53** manages DNS and directs user requests to appropriate endpoints, such as a CloudFront distribution or application load balancer.
+- **Application processing:** inside the **Virtual Private Cloud (VPC)**, the e-commerce application service processes dynamic requests, such as page rendering based on user profiles and shopping history. A product recommendation service can provide personalized suggestions based on behavior and preferences.
+- **Caching mechanism:** **Amazon ElastiCache** speeds up data retrieval by caching frequently accessed data, such as session state and frequently viewed product information. This reduces database load and improves response time.
+- **Data storage and processing:** a cart checkout service manages cart interactions and transactions. Catalog and session cache data is stored for quick access. A search engine built with **Amazon Elasticsearch** provides search capabilities across the product catalog.
+- **User profile and transaction data:** user profile information and transaction data are stored in **Amazon DynamoDB**, which provides scalable NoSQL database capabilities.
+- **Data logging:** **Amazon S3** stores logging data such as clickstream data, product interactions, and system logs, enabling analysis of user behavior and system performance.
+
+For application modernization, this section should also list application modules that need to be:
+
+- Retired
+- Retained
+- Replatformed
+- Transformed
+
+### 4.4.3 Data Architecture
+
+The **Data Architecture** section is primarily used by database administrators and development teams.
+
+It helps them understand database schemas and how tables are related.
+
+This section often includes an entity-relationship diagram (**ERD**) that shows relationships between entity sets stored in a database.
+
+![ERD of an e-commerce platform](<assets/ERD of an e-commerce platform.png>)
+
+**Figure: ERD of an e-commerce platform**
+
+An ERD is a visual representation of entities, usually corresponding to database tables, and the relationships between them. It is used in database design to illustrate the logical structure of databases.
+
+Example ERD components for an order processing system:
+
+- **Event entity:** represents an occurrence or action in the system.
+  - Attributes can include `Event_ID` as the primary key, `Event_Type`, `Event_Name`, and `Event_Loc`.
+  - These attributes describe what the event is, where it happened, and other event characteristics.
+- **Order entity:** represents a customer order.
+  - Attributes can include `Order_ID` as the primary key, `Order_Number`, `Order_Type`, `Order_Quantity`, `Order_Date`, and `Ship_Address`.
+  - These attributes store order-specific information such as amount ordered, shipping details, and order date.
+- **Order_Processing entity:** acts as an associative entity or junction table that connects events to orders.
+  - It indicates that an event leads to order processing.
+  - It has its own primary key, `Processing_EventID`.
+  - It includes foreign keys such as `Event_ID` and `Order_ID`.
+  - The `Order_Event_date` attribute records when an event resulted in an order being processed.
+
+Relationship lines between entities show cardinality.
+
+- Crow's foot notation indicates **many**.
+- A single line indicates **one**.
+
+The data architecture section should also list all data objects that must be considered during application development.
+
+### 4.4.4 Integration Architecture
+
+**Integration Architecture** describes the framework that allows different software applications, systems, and services to communicate and work together effectively.
+
+It includes the design and implementation of methods and middleware that support the exchange of data and processes across diverse systems:
+
+- Within an organization.
+- Between an organization and external parties.
+
+This section mainly targets:
+
+- Vendors
+- Partners
+- Other teams
+
+![Integration architecture diagram of an e-commerce platform](<assets/Integration architecture diagram of an e-commerce platform.png>)
+
+**Figure: Integration architecture diagram of an e-commerce platform**
+
+The integration architecture section should list:
+
+- Upstream systems that provide data to the application.
+- Platforms, services, or databases from which the application receives data.
+- The nature of the data flows.
+- Downstream systems to which the application sends data.
+- Applications, databases, or services that rely on data produced or processed by the application.
+- All system dependencies related to the application.
+
+### 4.4.5 Infrastructure Architecture
+
+The **Infrastructure Architecture** section is primarily targeted at the infrastructure team and system engineers.
+
+The solutions architect should include a deployment diagram that outlines logical server locations and dependencies.
+
+![Deployment diagram of an e-commerce platform](<assets/Deployment diagram of an e-commerce platform.png>)
+
+**Figure: Deployment diagram of an e-commerce platform**
+
+Separate diagrams can be created for other environments, such as:
+
+- Development (**dev**)
+- Quality assurance (**QA**)
+- User Acceptance Testing (**UAT**)
+- Production (**prod**)
+
+This section lists the infrastructure needed to deploy the application:
+
+- Server configurations
+- Databases
+- Networks
+- Switches
+
+### 4.4.6 Security Architecture
+
+The **Security Architecture** section includes the application's security and compliance aspects.
+
+It should cover:
+
+- **Identity and access management (IAM):**
+  - Active Directory (**AD**)
+  - User authentication
+  - Authorization management
+- **Infrastructure security:**
+  - Firewall configuration
+  - Intrusion Prevention System (**IPS**)
+  - Intrusion Detection System (**IDS**)
+  - Antivirus software
+- **Application security:**
+  - Web Application Firewall (**WAF**)
+  - Distributed Denial of Service (**DDoS**) protection
+- **Data security at rest and in transit:**
+  - SSL
+  - Encryption algorithms
+  - Key management
+
+The solutions architect can include an application security threat model to identify potential vulnerabilities and plan protections.
+
+Examples:
+
+- Cross-site scripting (**XSS**)
+- SQL injection (**SQLi**)
+
+[Back to Contents](#contents)
 
 ### 4.5 Solution Implementation
 
-- **5.1 Development**
-- **5.2 Deployment**
-- **5.3 Data Migration**
-- **5.4 Application Decommissioning**
+The **Solution Implementation** section includes essential considerations for developing and deploying the solution.
+
+It can include the following major subsections.
+
+#### Development
+
+This section is essential for the development team.
+
+It discusses:
+
+- Development tools
+- Programming language
+- Code repository
+- Code versioning
+- Branching strategy
+- Rationale behind these choices
+
+#### Deployment
+
+This section mainly focuses on DevOps engineers.
+
+It discusses:
+
+- Deployment approach
+- Deployment tools
+- Deployment components
+- Deployment checklist
+- Rationale behind these choices
+
+#### Data Migration
+
+This section helps the team understand:
+
+- Data migration approach
+- Data ingestion approach
+- Scope of data migration
+- Data objects
+- Data ingestion tools
+- Data sources
+- Data formats
+
+#### Application Decommissioning
+
+This section lists:
+
+- Existing systems that need to be decommissioned.
+- Exit strategy for the current system if the return on investment (**ROI**) is not realized.
+- Approach and timeline for decommissioning the old system.
+- Overall impact of decommissioning.
+
+The SAD includes development approach and tools, but it does not include detailed application-level design such as:
+
+- Class diagrams
+- Pseudocode
+
+Those details should be handled by the software architect or senior developer in the relevant software application detailed design document.
+
+[Back to Contents](#contents)
 
 ### 4.6 Solution Management
 
-- **6.1 Operational Management**
-  - **6.1.1 Monitoring and Alert**
-  - **6.1.2 Support and Incident Management**
-  - **6.1.3 Disaster Recovery**
-- **6.2 User Onboarding**
-  - **6.2.1 User System Requirement**
+After the solution is deployed, it must be managed in production.
+
+The **Solution Management** section focuses on production support and ongoing maintenance across product and non-product environments.
+
+This section covers the operational aspects of the solution, including:
+
+- Monitoring
+- Incident management
+- User onboarding
+- Support processes
+- Recovery processes
+
+The solution management section is primarily targeted at the operations management team.
+
+It should address:
+
+- Operational management, such as system patching and upgrades of:
+  - Dev environments
+  - Test environments
+  - Staging environments
+  - Production environments
+- Tools to manage application upgrades and new releases.
+- Tools to manage system infrastructure.
+- System monitoring and alerts.
+- Operations dashboard.
+- Production support.
+- Service-level agreements (**SLAs**).
+- Incident management.
+- Disaster recovery.
+- Business process continuation (**BPC**).
+
+[Back to Contents](#contents)
 
 ### 4.7 Appendix
 
-- **7.1 Open Items**
-- **7.2 Proof of Concept Findings**
+Like a business proposal document, the SAD can include an open **Appendix** section containing data that supports the overall architecture and solution choices.
+
+The appendix can include:
+
+- Open issues
+- Research data
+- Proof of concept (**POC**) outcomes
+- Tool comparison data
+- Vendor data
+- Partner data
+
+The structure of the SAD gives an overview of major sections that are usually included. The solutions architect may exclude some sections or include others to meet the requirements of the organization or project.
+
+> SADs should continue to be iterated and improved. More robust SADs create better-defined implementation guidelines and reduce risk of failure.
+
+A SAD is a running document created during the initial stages and updated over the years based on changes throughout the application life cycle.
 
 [Back to Contents](#contents)
