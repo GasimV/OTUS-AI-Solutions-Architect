@@ -29,6 +29,13 @@
    - [4.5 Solution Implementation](#45-solution-implementation)
    - [4.6 Solution Management](#46-solution-management)
    - [4.7 Appendix](#47-appendix)
+5. [Life Cycle of the SAD](#5-life-cycle-of-the-sad)
+6. [SAD Best Practices and Common Pitfalls](#6-sad-best-practices-and-common-pitfalls)
+7. [IT Procurement Documentation for a Solution Architecture](#7-it-procurement-documentation-for-a-solution-architecture)
+   - [7.1 RFx Document Types](#71-rfx-document-types)
+   - [7.2 Solutions Architect Role in RFP Work](#72-solutions-architect-role-in-rfp-work)
+   - [7.3 Cloud CRM RFP Example](#73-cloud-crm-rfp-example)
+8. [Summary](#8-summary)
 
 ---
 
@@ -797,5 +804,363 @@ The structure of the SAD gives an overview of major sections that are usually in
 > SADs should continue to be iterated and improved. More robust SADs create better-defined implementation guidelines and reduce risk of failure.
 
 A SAD is a running document created during the initial stages and updated over the years based on changes throughout the application life cycle.
+
+[Back to Contents](#contents)
+
+---
+
+## 5. Life Cycle of the SAD
+
+The life cycle of a SAD aligns with different phases of a project's life cycle. Different sections of the SAD are created at distinct stages.
+
+The life cycle of a SAD typically includes the following phases:
+
+![SAD life cycle](<assets/SAD life cycle.png>)
+
+**Figure: SAD life cycle**
+
+### Initiation
+
+The **initiation** phase is where the need for a SAD is recognized, usually at the project's conception.
+
+This phase defines objectives, such as outlining the software architecture for a new enterprise application. It sets the direction and scope for the document and helps ensure that the SAD aligns with project goals and stakeholder expectations.
+
+### Gathering Requirements
+
+The **gathering requirements** phase collects detailed requirements from key stakeholders.
+
+Example:
+
+- For a retail e-commerce platform, this may involve gathering insights on:
+  - User experience
+  - Payment processing
+  - Inventory management
+
+This phase ensures that the SAD addresses all critical aspects of the project.
+
+### Drafting
+
+The **drafting** phase creates the initial version of the SAD.
+
+For example, a SAD for a cloud-based system may detail:
+
+- AWS services to be used.
+- Database schemas.
+- Security protocols.
+- Technical implementation blueprint.
+
+The draft acts as the blueprint for the project's technical implementation.
+
+### Review and Feedback
+
+After the draft is prepared, it is shared with stakeholders for review.
+
+Example:
+
+- For a healthcare management system, reviewers may include:
+  - Clinicians
+  - IT staff
+  - Administrative personnel
+
+They may provide feedback on topics such as patient data flow and compliance with health regulations.
+
+### Finalization
+
+The **finalization** phase incorporates feedback and completes the SAD.
+
+Example:
+
+- A network architecture may be adjusted to improve data flow efficiency based on stakeholder input.
+
+### Implementation
+
+The finalized SAD guides project implementation.
+
+For example, developers and project managers use the SAD to ensure alignment with:
+
+- Planned architecture
+- Technology stack
+- Design decisions
+- Delivery expectations
+
+### Maintenance
+
+Over time, the SAD is revisited and updated to reflect:
+
+- Technology changes
+- Business objective changes
+- External factors
+- Regulatory changes
+
+Example:
+
+- New data privacy laws may require updates to the SAD to maintain compliance.
+
+[Back to Contents](#contents)
+
+---
+
+## 6. SAD Best Practices and Common Pitfalls
+
+Effective management of SADs involves certain best practices and an active effort to avoid common pitfalls.
+
+### Best Practices
+
+- Keep the document **clear and concise**.
+- Make it understandable while avoiding unnecessary technical jargon.
+- Involve stakeholders regularly throughout the process.
+- Ensure the SAD aligns with both business and technical requirements.
+- Keep the SAD up to date with the latest project changes and developments.
+- Align the architecture in the SAD with the organization's broader business goals.
+- Make sure proposed technical solutions support and enhance business objectives.
+
+### Common Pitfalls
+
+- **Overcomplicating the architecture:** can create implementation and maintenance challenges.
+- **Lack of flexibility:** makes the SAD harder to adapt when project scope or objectives change.
+- **Insufficient stakeholder engagement:** can cause misalignment with real business needs and requirements.
+- **Poor documentation practices:** can lead to misunderstandings, implementation errors, and project execution challenges.
+
+> These pitfalls should be addressed proactively to improve the success of the solution architecture.
+
+[Back to Contents](#contents)
+
+---
+
+## 7. IT Procurement Documentation for a Solution Architecture
+
+In addition to the SAD, solution architecture often involves procurement proposal documents known as **RFx documents**.
+
+**RFx** is a general term for formal request documents used at different stages of the procurement process.
+
+RFx documents include:
+
+- Request for Information (**RFI**)
+- Request for Proposal (**RFP**)
+- Request for Quotation (**RFQ**)
+
+Solutions architects are often involved in procurement, either leading the process or providing input. Procurement may involve:
+
+- Outsourcing
+- Contracting
+- Procuring software such as databases or development tools
+- Buying SaaS solutions
+
+Because these documents can be highly technical and can have broad, long-term impact, the solutions architect should provide input by responding to procurement requirements.
+
+### 7.1 RFx Document Types
+
+#### Request for Information (RFI)
+
+An **RFI** comes early in the procurement process.
+
+Buyers invite information from different vendors to support a later procurement decision. An RFI collects information about supplier capabilities so the buyer can compare suppliers using similar parameters and shortlist candidates for the next proposal stages.
+
+Example:
+
+- A company explores the market for learning management systems (**LMSs**) that meet training needs.
+- The company issues an RFI to collect information about:
+  - Functionalities
+  - Integration capabilities
+  - User experiences of available LMS platforms
+
+#### Request for Proposal (RFP)
+
+An **RFP** is used when shortlisted suppliers receive more information about the project's desired outcome.
+
+An RFP is more open-ended than an RFI. Suppliers can propose the best way to deliver the solution and may include multiple options with pros and cons.
+
+Example:
+
+- A government agency wants to upgrade its IT infrastructure.
+- The RFP describes:
+  - Current system
+  - Required improvements
+  - Performance criteria
+- Vendors respond with:
+  - Technical solutions
+  - Project timelines
+  - Cost estimates
+
+#### Request for Quotation (RFQ)
+
+An **RFQ** is used when buyers have narrowed down the requirements and can list exact requirements for work, equipment, or supplies.
+
+Suppliers provide costs for the listed requirements, and the buyer can choose the best quote to award the contract.
+
+Example:
+
+- A technology startup is scaling IT infrastructure to support a growing user base.
+- The startup has already determined requirements for:
+  - Compute instances
+  - Memory
+  - Storage
+  - Bandwidth
+- The RFQ asks infrastructure providers to submit:
+  - Monthly pricing
+  - Yearly pricing
+  - Long-term commitment discounts
+  - Support options
+  - Monitoring options
+  - Security features included in the quoted price
+
+### RFP as the Common Shortcut
+
+The **RFP** is often the most popular choice because buyer organizations may ask directly for RFP documents from potential vendors to speed up procurement.
+
+In this situation, the RFP document needs a clear structure so the buyer can compare vendors by:
+
+- Capabilities
+- Solution approaches
+- Costs
+- Delivery confidence
+
+### 7.2 Solutions Architect Role in RFP Work
+
+Due to the technical nature of procurement in IT organizations, solutions architects play an important role in:
+
+- Evaluating vendor capabilities and approaches from the buyer's perspective.
+- Responding to RFP documents from the supplier side.
+
+During an RFP process for an IT workload, a solutions architect may contribute in the following ways.
+
+#### Understanding Requirements
+
+The solutions architect thoroughly understands the technical and business requirements.
+
+Examples:
+
+- Enhancing existing systems.
+- Migrating to the cloud.
+- Integrating new technologies.
+
+#### Designing the Solution
+
+The solutions architect drafts a preliminary IT architecture design that addresses the identified requirements.
+
+This includes:
+
+- Selecting appropriate technologies.
+- Designing the infrastructure layout.
+- Considering integration with existing systems.
+
+#### Collaborative Contribution
+
+The architect collaborates with cross-functional teams to ensure that the proposal aligns with business objectives and technical feasibility.
+
+Common collaborators:
+
+- Business analysts
+- Project managers
+- Technical leads
+
+#### Estimating Resources
+
+The architect estimates resources required for the project, such as:
+
+- Hardware
+- Software
+- Cloud services
+- Personnel hours
+
+This helps keep the proposal competitive and realistic.
+
+#### Risk Assessment
+
+Solutions architects identify potential project risks and propose mitigation strategies for the RFP response.
+
+#### Documentation
+
+Solutions architects help create detailed technical documentation explaining how the proposed solution meets the RFP requirements.
+
+This documentation may include:
+
+- System diagrams
+- Data flow diagrams
+- Detailed descriptions of the proposed environment
+
+#### Pricing Strategy
+
+Solutions architects may work with the finance team to develop a pricing strategy for the proposal, ensuring the costs are aligned with the value delivered.
+
+#### Presentation
+
+Solutions architects may be part of the team that presents the proposal to the potential client.
+
+They explain technical aspects and answer technical questions from the client.
+
+> The role of a solutions architect is to tailor a solution that meets client requirements while ensuring technological viability and cost-effectiveness.
+
+### 7.3 Cloud CRM RFP Example
+
+For a company soliciting proposals for a new cloud-based CRM system, the solutions architect would first analyze the existing IT infrastructure and assess required features such as:
+
+- Scalability
+- Data security
+
+The architect would design a cloud solution that:
+
+- Integrates with current systems such as ERP.
+- Aligns with marketing strategies.
+- Fits the company's specific needs.
+- Evaluates compatibility of potential CRM platforms.
+- Meets compliance and data management requirements in collaboration with legal teams.
+
+A key task is creating a migration strategy to move data from old systems to the new CRM with minimal business disruption.
+
+This also involves estimating the **total cost of ownership (TCO)**, including:
+
+- Subscription costs
+- Customization
+- Data transfer
+- Training needs
+
+The solutions architect helps draft the technical sections of the RFP response, including:
+
+- Proposed architecture
+- Data strategy
+- Security measures
+- Implementation roadmap
+- Scalability plan
+- Post-deployment support structure
+
+The solutions architect may also present and defend the technical strategy to client decision-makers, showing the benefits and practicality of the proposed solution.
+
+The goal is to help the client invest in a reliable, secure, and scalable system that supports business growth and adapts to evolving market demands.
+
+[Back to Contents](#contents)
+
+---
+
+## 8. Summary
+
+The SAD keeps stakeholders on the same page and supports formal agreement on solution design and requirements.
+
+Because stakeholders include both business and technical users, the SAD should include views that address different needs:
+
+- For non-technical users:
+  - Business view
+  - Process view
+  - Logical view
+- For technical users:
+  - Application view
+  - Development view
+  - Deployment view
+  - Operational view
+
+The detailed SAD structure includes major sections and subsections covering:
+
+- Solution overview
+- Business context
+- Conceptual architecture
+- Application architecture
+- Data architecture
+- Infrastructure architecture
+- Integration architecture
+- Security architecture
+- Solution delivery considerations
+- Operations management
+
+The completed SAD should provide clear implementation guidance, reduce delivery risk, and remain a living document throughout the solution life cycle.
 
 [Back to Contents](#contents)
